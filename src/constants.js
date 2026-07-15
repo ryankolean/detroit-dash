@@ -60,3 +60,26 @@ export const COIN = {
   maxMult: 5, // multiplier cap
   maxPerCluster: 3, // rng picks 0..this many coins per spawn
 };
+
+// Parallax Detroit skyline (v1.2). Cosmetic only — generated from its OWN seed,
+// never the gameplay stream, so obstacle/coin determinism is untouched (§4).
+export const SKYLINE_SEED = 0x1701d; // fixed cosmetic seed ("Detroit")
+export const SKYLINE = {
+  // Back-to-front layers. `factor` = scroll speed vs. the world (0 = static,
+  // 1 = foreground). Taller/darker far, shorter/lighter near for depth.
+  layers: [
+    { factor: 0.15, color: '#0d2038', minH: 60, maxH: 150, minW: 30, maxW: 70, gap: 8, baseY: 380 },
+    { factor: 0.35, color: '#122b47', minH: 40, maxH: 110, minW: 26, maxW: 60, gap: 10, baseY: 380 },
+  ],
+  spanTiles: 3, // generate this many screen-widths of buildings per layer, then wrap
+  litWindow: '#1d4e89', // occasional lit window accent
+};
+
+// Cosmetic particle FX (v1.2): jump dust, coin sparkle, death burst. Not part of
+// the sim — uses non-deterministic spread and never affects score or course.
+export const PARTICLES = {
+  gravity: 900, // world-units / s^2 pulling particles down
+  jumpDust: { count: 8, life: 0.4, speed: 90, size: 4, color: '#9fb4cc' },
+  coinSpark: { count: 10, life: 0.5, speed: 160, size: 3, color: '#ffd166' },
+  deathBurst: { count: 20, life: 0.7, speed: 240, size: 4, color: '#ff6b35' },
+};

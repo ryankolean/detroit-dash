@@ -13,6 +13,8 @@ import { createRenderer } from './engine/renderer.js';
 import { bindInput } from './engine/input.js';
 import { playerHitsAny } from './engine/collision.js';
 import { createScorer, resolveCoins } from './engine/scoring.js';
+import { createSkyline } from './engine/skyline.js';
+import { createParticles } from './engine/particles.js';
 import { load, save, recordRun, isLockedFor } from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
@@ -41,6 +43,9 @@ hudStreak.textContent = `🔥 ${state.currentStreak}`;
 
 const renderer = createRenderer(canvas);
 window.addEventListener('resize', () => renderer.resize());
+
+// Cosmetic parallax skyline — built once from its own seed, shared across runs.
+const skyline = createSkyline();
 
 // --- Countdown to the next Detroit midnight (§5, §6) -----------------------
 function secondsUntilNextMidnight(when) {
@@ -132,21 +137,28 @@ function startRun() {
   const world = createWorld({ rng });
   const player = createPlayer();
   const scorer = createScorer();
+  const particles = createParticles();
   let over = false;
 
-  const unbindInput = bindInput({ target: canvas, onJump: () => player.jump() });
+  const onJump = () => {
+    if (player.grounded) particles.jump(player.x + player.width / 2, player.y + player.height);
+    player.jump();
+  };
+  const unbindInput = bindInput({ target: canvas, onJump });
 
   const loop = createLoop({
     update(dt) {
       world.update(dt);
       player.update(dt);
-      resolveCoins(world.coins, player.box(), scorer); // collect / break combo
+      const got = resolveCoins(world.coins, player.box(), scorer); // collect / break combo
+      for (const c of got) particles.coin(c.x, c.y); // sparkle FX
+      particles.update(dt);
       if (playerHitsAny(player.hitbox(), world.obstacles)) {
         endRun();
       }
     },
     render() {
-      renderer.draw(world, player);
+      renderer.draw(world, player, skyline, particles);
       const total = scorer.total(Math.floor(world.meters));
       const combo = scorer.multiplier > 1 ? ` ×${scorer.multiplier}` : '';
       hudScore.textContent = `${total.toLocaleString('en-US')} m${combo}`;
@@ -156,6 +168,9 @@ function startRun() {
   function endRun() {
     if (over) return;
     over = true;
+    // Death burst at the player, drawn once before the loop stops.
+    particles.death(player.x + player.width / 2, player.y + player.height / 2);
+    renderer.draw(world, player, skyline, particles);
     loop.stop();
     unbindInput();
     const score = scorer.total(Math.floor(world.meters));

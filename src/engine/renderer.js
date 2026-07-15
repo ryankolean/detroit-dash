@@ -1,7 +1,7 @@
 // Renderer — canvas draw (§7, §8). The ONLY engine module that touches the DOM
 // besides input.js. v1.0: simple shapes / programmer-art, no parallax/particles (§7).
 
-import { WORLD } from '../constants.js';
+import { WORLD, SKYLINE } from '../constants.js';
 
 const COLORS = {
   sky: '#0e2440',
@@ -47,8 +47,38 @@ export function createRenderer(canvas) {
     ctx.fillRect(0, WORLD.groundY, WORLD.width, 3);
   }
 
-  function draw(world, player) {
+  // Parallax skyline (v1.2): each layer scrolls by its factor and wraps modulo
+  // its strip width. Drawn behind the ground so buildings rise from the horizon.
+  function drawSkyline(skyline, distance) {
+    if (!skyline) return;
+    for (const layer of skyline.layers) {
+      const off = (distance * layer.factor) % layer.tileW;
+      for (const b of layer.buildings) {
+        for (let k = 0; k < 2; k++) {
+          const bx = b.x - off + k * layer.tileW;
+          if (bx + b.w < 0 || bx > WORLD.width) continue;
+          ctx.fillStyle = layer.color;
+          ctx.fillRect(bx, b.y, b.w, b.h);
+          ctx.fillStyle = SKYLINE.litWindow;
+          for (const win of b.windows) ctx.fillRect(bx + win.dx, b.y + win.dy, 3, 4);
+        }
+      }
+    }
+  }
+
+  function drawParticles(particles) {
+    if (!particles) return;
+    for (const p of particles.list) {
+      ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function draw(world, player, skyline, particles) {
     clear();
+    drawSkyline(skyline, world.distance || 0);
     drawGround();
     ctx.fillStyle = COLORS.obstacle;
     for (const o of world.obstacles) ctx.fillRect(o.x, o.y, o.w, o.h);
@@ -67,6 +97,7 @@ export function createRenderer(canvas) {
     }
     ctx.fillStyle = COLORS.player;
     ctx.fillRect(player.x, player.y, player.width, player.height);
+    drawParticles(particles);
   }
 
   resize();

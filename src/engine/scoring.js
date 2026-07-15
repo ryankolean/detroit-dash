@@ -39,20 +39,25 @@ export function createScorer() {
 /**
  * resolveCoins — for one sim step, collect coins overlapping the player and mark
  * coins that scrolled fully past the player as missed. Mutates `coins` in place.
+ * Returns the coins collected this step (for FX; center-of-coin positions).
  *
  * @param {Array<{x:number,y:number,w:number,h:number}>} coins
  * @param {{x:number,y:number,w:number,h:number}} playerBox - full sprite box (generous pickup).
  * @param {Object} scorer - from createScorer().
+ * @returns {Array<{x:number,y:number}>} collected coin centers this step.
  */
 export function resolveCoins(coins, playerBox, scorer) {
+  const collected = [];
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
     if (aabbIntersects(playerBox, c)) {
       scorer.collect();
+      collected.push({ x: c.x + c.w / 2, y: c.y + c.h / 2 });
       coins.splice(i, 1);
     } else if (c.x + c.w < playerBox.x) {
       scorer.miss(); // fully past the player, never collected -> combo breaks
       coins.splice(i, 1);
     }
   }
+  return collected;
 }
