@@ -51,6 +51,11 @@ export function createPlayer(opts = {}) {
       const i = t.hitboxInset;
       return { x: p.x + i, y: p.y + i, w: t.width - 2 * i, h: t.height - 2 * i };
     },
+
+    // Full sprite AABB — used for the generous coin-pickup check (v1.1).
+    box() {
+      return { x: p.x, y: p.y, w: t.width, h: t.height };
+    },
   };
   return p;
 }

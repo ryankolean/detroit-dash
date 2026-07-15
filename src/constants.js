@@ -46,5 +46,18 @@ export const WORLD_TUNING = {
   obstacleHeights: [34, 52, 70], // heights (rng.pick)
 };
 
-// 1 meter of score == this many world-units of scroll. Score = floor(distance).
+// 1 meter of score == this many world-units of scroll. Distance score = floor(meters).
 export const METERS_PER_UNIT = 0.1;
+
+// Collectibles + streak-combo scoring (v1.1). Coins spawn from the seeded stream
+// so the course stays identical for everyone; collecting is auto on overlap.
+export const COIN = {
+  size: 20, // square coin, world-units
+  elevatedY: 150, // elevated coins sit this many units above the ground (jump to reach)
+  clusterGap: 44, // horizontal spacing between coins in a cluster
+  leadOffset: 90, // spawn coins this far past the right edge, trailing the obstacle
+  base: 50, // base points per coin, before the combo multiplier
+  comboStep: 2, // coins per multiplier tier (2 coins -> +1x)
+  maxMult: 5, // multiplier cap
+  maxPerCluster: 3, // rng picks 0..this many coins per spawn
+};

@@ -2,7 +2,7 @@
 // Pure simulation, no DOM. ALL randomness comes from the injected rng stream;
 // no Math.random() here (§4). Same seed -> identical spawn list (§9 snapshot test).
 
-import { WORLD, WORLD_TUNING, METERS_PER_UNIT } from '../constants.js';
+import { WORLD, WORLD_TUNING, METERS_PER_UNIT, COIN } from '../constants.js';
 
 /**
  * createWorld — build the world sim for a run. Deterministic given a seeded rng
@@ -18,9 +18,10 @@ export function createWorld(opts) {
 
   const w = {
     distance: 0, // total world-units scrolled
-    meters: 0, // distance in meters (score = floor(meters))
+    meters: 0, // distance in meters (distance score = floor(meters))
     speed: T.baseSpeed,
     obstacles: [], // active { x, y, w, h }, x in screen space
+    coins: [], // active collectibles { x, y, w, h } (v1.1)
     distToNextSpawn: T.gapMin, // units of scroll until the next spawn
 
     spawn() {
@@ -36,6 +37,22 @@ export function createWorld(opts) {
       const tighten = (w.speed - T.baseSpeed) / (T.maxSpeed - T.baseSpeed); // 0..1
       const gapMax = T.gapMax - (T.gapMax - T.gapMin) * 0.5 * tighten;
       w.distToNextSpawn = rng.range(T.gapMin, gapMax);
+
+      // Coin cluster trailing the obstacle, all drawn from the seeded stream so
+      // the collectible layout is identical for everyone (§4).
+      const coinCount = rng.int(0, COIN.maxPerCluster);
+      const elevated = rng.next() < 0.5;
+      const coinY = elevated
+        ? WORLD.groundY - COIN.elevatedY
+        : WORLD.groundY - COIN.size;
+      for (let i = 0; i < coinCount; i++) {
+        w.coins.push({
+          x: WORLD.width + COIN.leadOffset + i * COIN.clusterGap,
+          y: coinY,
+          w: COIN.size,
+          h: COIN.size,
+        });
+      }
     },
 
     update(dt) {
@@ -45,9 +62,12 @@ export function createWorld(opts) {
       w.distance += step;
       w.meters = w.distance * METERS_PER_UNIT;
 
-      // Scroll obstacles left; retire off-screen ones.
+      // Scroll obstacles + coins left; retire off-screen obstacles. (Coins are
+      // retired by resolveCoins when they pass the player; drop any stragglers.)
       for (const o of w.obstacles) o.x -= step;
+      for (const c of w.coins) c.x -= step;
       w.obstacles = w.obstacles.filter((o) => o.x + o.w > 0);
+      w.coins = w.coins.filter((c) => c.x + c.w > 0);
 
       // Spawn when enough scroll has elapsed.
       w.distToNextSpawn -= step;

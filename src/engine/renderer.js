@@ -9,6 +9,7 @@ const COLORS = {
   groundLine: '#1d4e89',
   player: '#ff6b35', // Summit orange (§7)
   obstacle: '#8fb8de',
+  coin: '#ffd166', // gold collectible (v1.1)
 };
 
 /**
@@ -51,6 +52,19 @@ export function createRenderer(canvas) {
     drawGround();
     ctx.fillStyle = COLORS.obstacle;
     for (const o of world.obstacles) ctx.fillRect(o.x, o.y, o.w, o.h);
+    // Coins as gold diamonds so they read differently from square obstacles.
+    ctx.fillStyle = COLORS.coin;
+    for (const c of world.coins) {
+      const cx = c.x + c.w / 2;
+      const cy = c.y + c.h / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, c.y);
+      ctx.lineTo(c.x + c.w, cy);
+      ctx.lineTo(cx, c.y + c.h);
+      ctx.lineTo(c.x, cy);
+      ctx.closePath();
+      ctx.fill();
+    }
     ctx.fillStyle = COLORS.player;
     ctx.fillRect(player.x, player.y, player.width, player.height);
   }

@@ -9,57 +9,71 @@ import { createRng } from '../src/engine/rng.js';
 import { createWorld } from '../src/engine/world.js';
 import { createPlayer } from '../src/engine/player.js';
 import { playerHitsAny } from '../src/engine/collision.js';
+import { createScorer, resolveCoins } from '../src/engine/scoring.js';
 import { dayKey, seedFromDay, puzzleNumber } from '../src/daily.js';
 import { DT } from '../src/constants.js';
 
 // Headless run: step the sim at fixed DT, fire jumps at the scripted step
-// indices, stop on the first collision. Same as the real loop, minus rAF/DOM.
+// indices, collect coins, stop on the first collision. Mirrors the real loop
+// order exactly (world -> player -> coins -> collision), minus rAF/DOM. `score`
+// is the v1.1 total (distance + combo coin score).
 function headlessRun(seed, jumpSteps = []) {
   const rng = createRng(seed);
   const world = createWorld({ rng });
   const player = createPlayer();
+  const scorer = createScorer();
   const jumps = new Set(jumpSteps);
   let step = 0;
   while (step < 100000) {
     if (jumps.has(step)) player.jump();
     world.update(DT);
     player.update(DT);
+    resolveCoins(world.coins, player.box(), scorer);
     if (playerHitsAny(player.hitbox(), world.obstacles)) break;
     step++;
   }
-  return { score: Math.floor(world.meters), steps: step };
+  return {
+    score: scorer.total(Math.floor(world.meters)),
+    distance: Math.floor(world.meters),
+    coins: scorer.coinsCollected,
+    steps: step,
+  };
 }
 
 const DAY = '20260715';
 const SEED = seedFromDay(DAY); // 313789980
 
+// Frozen well-timed jump schedule for SEED (derived once). Collects 8 coins.
+const JUMP_TIMELINE = [158, 208, 266, 312, 354, 403, 440, 477, 514];
+
 test('keystone: no-input run dies at an exact pinned score', () => {
   const r = headlessRun(SEED);
-  assert.equal(r.score, 90); // player never jumps -> first obstacle at 90 m
+  assert.equal(r.distance, 90); // never jumps -> first obstacle at 90 m
+  assert.equal(r.coins, 0); // no coins reachable before that first hit
+  assert.equal(r.score, 90);
   assert.equal(r.steps, 180);
 });
 
-test('keystone: scripted jump timeline -> exact pinned score', () => {
-  // A well-timed jump schedule (derived once, frozen). If world spawn, physics,
-  // or collision drift, this exact score changes and the test fails.
-  const jumpSteps = [158, 208, 254, 308, 363, 406, 443, 480, 517, 554];
-  const r = headlessRun(SEED, jumpSteps);
-  assert.equal(r.score, 374);
-  assert.equal(r.steps, 554);
+test('keystone: scripted jump timeline -> exact pinned score (distance + combo)', () => {
+  // If world spawn, coin layout, physics, collision, or combo math drift, this
+  // exact score changes and the test fails. This is the "same for everyone" pin.
+  const r = headlessRun(SEED, JUMP_TIMELINE);
+  assert.equal(r.distance, 368);
+  assert.equal(r.coins, 8);
+  assert.equal(r.score, 818); // 368 distance + coin/combo score
+  assert.equal(r.steps, 548);
 });
 
 test('keystone: same seed + same inputs -> identical result (reproducible)', () => {
-  const steps = [158, 208, 254, 308, 363, 406, 443, 480, 517, 554];
-  assert.deepEqual(headlessRun(SEED, steps), headlessRun(SEED, steps));
+  assert.deepEqual(headlessRun(SEED, JUMP_TIMELINE), headlessRun(SEED, JUMP_TIMELINE));
 });
 
 test('keystone: different day seed -> different course', () => {
   // Same scripted inputs, different day: the courses diverge, so the outcome
   // differs. (A no-input run can't show this — it always dies at the fixed
   // first gap regardless of seed.)
-  const steps = [158, 208, 254, 308, 363, 406, 443, 480, 517, 554];
-  const a = headlessRun(seedFromDay('20260715'), steps);
-  const b = headlessRun(seedFromDay('20260716'), steps);
+  const a = headlessRun(seedFromDay('20260715'), JUMP_TIMELINE);
+  const b = headlessRun(seedFromDay('20260716'), JUMP_TIMELINE);
   assert.notEqual(a.score, b.score); // adjacent days are not the same puzzle
 });
 

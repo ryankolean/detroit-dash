@@ -12,6 +12,7 @@ import { createPlayer } from './engine/player.js';
 import { createRenderer } from './engine/renderer.js';
 import { bindInput } from './engine/input.js';
 import { playerHitsAny } from './engine/collision.js';
+import { createScorer, resolveCoins } from './engine/scoring.js';
 import { load, save, recordRun, isLockedFor } from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
@@ -130,6 +131,7 @@ function startRun() {
   const rng = createRng(seed);
   const world = createWorld({ rng });
   const player = createPlayer();
+  const scorer = createScorer();
   let over = false;
 
   const unbindInput = bindInput({ target: canvas, onJump: () => player.jump() });
@@ -138,13 +140,16 @@ function startRun() {
     update(dt) {
       world.update(dt);
       player.update(dt);
+      resolveCoins(world.coins, player.box(), scorer); // collect / break combo
       if (playerHitsAny(player.hitbox(), world.obstacles)) {
         endRun();
       }
     },
     render() {
       renderer.draw(world, player);
-      hudScore.textContent = `${Math.floor(world.meters).toLocaleString('en-US')} m`;
+      const total = scorer.total(Math.floor(world.meters));
+      const combo = scorer.multiplier > 1 ? ` ×${scorer.multiplier}` : '';
+      hudScore.textContent = `${total.toLocaleString('en-US')} m${combo}`;
     },
   });
 
@@ -153,7 +158,7 @@ function startRun() {
     over = true;
     loop.stop();
     unbindInput();
-    const score = Math.floor(world.meters);
+    const score = scorer.total(Math.floor(world.meters));
 
     if (dev.enabled) {
       // Don't persist — testing must not pollute real streak/best. Show the run
