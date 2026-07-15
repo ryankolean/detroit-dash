@@ -18,6 +18,12 @@
   color-scheme: dark;
 }
 
+/* Day variant — page frame matches the daytime skyline (v1.3). */
+body[data-daynight="day"] {
+  --bg: #bcd8ec;
+  --fg: #0f2f47;
+}
+
 html,
 body {
   height: 100%;

@@ -23,6 +23,22 @@ export function dayKey(now = new Date()) {
 }
 
 /**
+ * isDaytime — true when it is daytime (07:00–18:59) in America/Detroit (v1.3).
+ * Selects the day vs night skyline variant. Pure, uses injected `now`.
+ *
+ * @param {Date} now - injected clock (defaults to new Date()).
+ * @returns {boolean}
+ */
+export function isDaytime(now = new Date()) {
+  const hour = +new Intl.DateTimeFormat('en-US', {
+    timeZone: TIMEZONE,
+    hour: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now).find((p) => p.type === 'hour').value;
+  return hour >= 7 && hour < 19;
+}
+
+/**
  * seedFromDay — deterministic 32-bit uint seed derived from a day key (§4).
  * Feeds mulberry32. Same day key -> same seed -> identical course.
  *

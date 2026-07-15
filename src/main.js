@@ -4,7 +4,7 @@
 // only module that assembles DOM + engine + storage; keep game rules in the
 // engine modules, not here.
 
-import { dayKey, seedFromDay, puzzleNumber } from './daily.js';
+import { dayKey, seedFromDay, puzzleNumber, isDaytime } from './daily.js';
 import { createRng } from './engine/rng.js';
 import { createLoop } from './engine/loop.js';
 import { createWorld } from './engine/world.js';
@@ -44,10 +44,23 @@ hudPuzzle.textContent = `Detroit Dash #${puzzleNo}${dev.enabled ? ' · DEV' : ''
 hudStreak.textContent = `🔥 ${state.currentStreak}`;
 
 const renderer = createRenderer(canvas);
-window.addEventListener('resize', () => renderer.resize());
+window.addEventListener('resize', () => {
+  renderer.resize();
+  drawBackdrop();
+});
 
 // Cosmetic parallax skyline — built once from its own seed, shared across runs.
 const skyline = createSkyline();
+
+// Day vs night skyline variant, by current Detroit local time (v1.3).
+const theme = isDaytime(now) ? 'day' : 'night';
+document.body.dataset.daynight = theme; // lets CSS match the page frame
+
+// A static backdrop so the skyline shows even behind the lock/result screen.
+function drawBackdrop() {
+  renderer.draw({ distance: 0, obstacles: [], coins: [] }, createPlayer(), skyline, null, theme);
+}
+drawBackdrop();
 
 // Sound + persisted mute toggle (v1.2).
 const audio = createAudio();
@@ -178,7 +191,7 @@ function startRun() {
       }
     },
     render() {
-      renderer.draw(world, player, skyline, particles);
+      renderer.draw(world, player, skyline, particles, theme);
       const total = scorer.total(Math.floor(world.meters));
       const combo = scorer.multiplier > 1 ? ` ×${scorer.multiplier}` : '';
       hudScore.textContent = `${total.toLocaleString('en-US')} m${combo}`;
@@ -191,7 +204,7 @@ function startRun() {
     // Death burst at the player, drawn once before the loop stops.
     particles.death(player.x + player.width / 2, player.y + player.height / 2);
     audio.death();
-    renderer.draw(world, player, skyline, particles);
+    renderer.draw(world, player, skyline, particles, theme);
     loop.stop();
     unbindInput();
     const score = scorer.total(Math.floor(world.meters));

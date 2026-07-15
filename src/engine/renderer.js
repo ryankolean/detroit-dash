@@ -1,14 +1,30 @@
 // Renderer — canvas draw (§7, §8). The ONLY engine module that touches the DOM
 // besides input.js. v1.0: simple shapes / programmer-art, no parallax/particles (§7).
 
-import { WORLD, SKYLINE } from '../constants.js';
+import { WORLD } from '../constants.js';
 
 const COLORS = {
-  sky: '#0e2440',
-  ground: '#13315c',
-  groundLine: '#1d4e89',
-  player: '#ff6b35', // Summit orange (§7)
+  player: '#ff6b35', // Summit orange (§7) — reads on both day + night skies
   coin: '#ffd166', // gold collectible (v1.1)
+};
+
+// Day/night skyline themes (v1.3), selected by Detroit local time. Same geometry,
+// swapped palette: bright sky + teal river by day, deep navy + lit windows by night.
+const THEMES = {
+  day: {
+    skyTop: '#3b7fc4', skyBot: '#cfe8f5',
+    ground: '#2b8ca0', groundLine: '#63c6d6', // Detroit River teal
+    far: '#8ba7bd', near: '#5f7a92', edge: '#43596f',
+    brick: '#a5624e', dome: '#8fd7e2', glass: '#aecbe0',
+    winLit: '#fbe9b0', winDim: 'rgba(255,255,255,0.16)', beacon: '#e8503a',
+  },
+  night: {
+    skyTop: '#081426', skyBot: '#12325a',
+    ground: '#0c1f38', groundLine: '#1d4e89',
+    far: '#0e2038', near: '#16304e', edge: '#0a1a2e',
+    brick: '#5a3129', dome: '#1f5f6e', glass: '#1b3b5c',
+    winLit: '#ffd166', winDim: 'rgba(120,160,200,0.10)', beacon: '#ff5a3c',
+  },
 };
 
 /**
@@ -34,35 +50,85 @@ export function createRenderer(canvas) {
     ctx.setTransform(scale, 0, 0, scale, 0, 0);
   }
 
-  function clear() {
-    ctx.fillStyle = COLORS.sky;
+  function clear(t) {
+    const g = ctx.createLinearGradient(0, 0, 0, WORLD.height);
+    g.addColorStop(0, t.skyTop);
+    g.addColorStop(1, t.skyBot);
+    ctx.fillStyle = g;
     ctx.fillRect(0, 0, WORLD.width, WORLD.height);
   }
 
-  function drawGround() {
-    ctx.fillStyle = COLORS.ground;
+  function drawGround(t) {
+    ctx.fillStyle = t.ground;
     ctx.fillRect(0, WORLD.groundY, WORLD.width, WORLD.height - WORLD.groundY);
-    ctx.fillStyle = COLORS.groundLine;
+    ctx.fillStyle = t.groundLine;
     ctx.fillRect(0, WORLD.groundY, WORLD.width, 3);
   }
 
-  // Parallax skyline (v1.2): each layer scrolls by its factor and wraps modulo
-  // its strip width. Drawn behind the ground so buildings rise from the horizon.
-  function drawSkyline(skyline, distance) {
+  // One pixel-art building: body, window grid, and a landmark-specific top.
+  // `detailed` = near layer (windows + roof detail); far layer only lights up.
+  function drawBuilding(b, bx, layerFill, t, detailed) {
+    const fill = b.type === 'brick' ? t.brick : layerFill;
+    ctx.fillStyle = fill;
+    ctx.fillRect(bx, b.y, b.w, b.h);
+
+    for (const win of b.windows) {
+      if (win.lit) {
+        ctx.fillStyle = t.winLit;
+        ctx.fillRect(bx + win.dx, b.y + win.dy, win.w, win.h);
+      } else if (detailed) {
+        ctx.fillStyle = t.winDim;
+        ctx.fillRect(bx + win.dx, b.y + win.dy, win.w, win.h);
+      }
+    }
+    if (!detailed) return;
+
+    ctx.fillStyle = t.edge; // right-edge shadow for depth
+    ctx.fillRect(bx + b.w - 2, b.y, 2, b.h);
+
+    const cx = bx + b.w / 2;
+    if (b.type === 'spires') {
+      ctx.fillStyle = fill; // gothic twin spires (One Detroit Center)
+      ctx.fillRect(cx - 9, b.y - 22, 4, 22);
+      ctx.fillRect(cx + 5, b.y - 22, 4, 22);
+      ctx.fillRect(cx - 3, b.y - 14, 6, 14);
+    } else if (b.type === 'antenna') {
+      ctx.fillStyle = fill; // Penobscot mast + red beacon
+      ctx.fillRect(cx - 1.5, b.y - 30, 3, 30);
+      ctx.fillStyle = t.beacon;
+      ctx.fillRect(cx - 2.5, b.y - 34, 5, 5);
+    } else if (b.type === 'rencen') {
+      ctx.fillStyle = t.glass; // observation band
+      ctx.fillRect(bx, b.y + 16, b.w, 7);
+      ctx.fillStyle = fill; // cylindrical crown
+      ctx.beginPath();
+      ctx.ellipse(cx, b.y, b.w * 0.32, 9, 0, Math.PI, 0, true);
+      ctx.fill();
+      ctx.fillRect(cx - 1.5, b.y - 16, 3, 16); // roof mast
+      ctx.fillStyle = t.dome; // Wintergarden glass dome at the base
+      ctx.beginPath();
+      ctx.arc(cx, WORLD.groundY, b.w * 0.52, Math.PI, 0);
+      ctx.fill();
+    }
+  }
+
+  // Parallax skyline (v1.3): far layer behind, curated near layer in front. Each
+  // scrolls by its factor and wraps modulo its strip width.
+  function drawSkyline(skyline, distance, t) {
     if (!skyline) return;
-    for (const layer of skyline.layers) {
+    const lastLayer = skyline.layers.length - 1;
+    skyline.layers.forEach((layer, li) => {
+      const near = li === lastLayer;
+      const layerFill = near ? t.near : t.far;
       const off = (distance * layer.factor) % layer.tileW;
       for (const b of layer.buildings) {
         for (let k = 0; k < 2; k++) {
           const bx = b.x - off + k * layer.tileW;
           if (bx + b.w < 0 || bx > WORLD.width) continue;
-          ctx.fillStyle = layer.color;
-          ctx.fillRect(bx, b.y, b.w, b.h);
-          ctx.fillStyle = SKYLINE.litWindow;
-          for (const win of b.windows) ctx.fillRect(bx + win.dx, b.y + win.dy, 3, 4);
+          drawBuilding(b, bx, layerFill, t, near);
         }
       }
-    }
+    });
   }
 
   function drawParticles(particles) {
@@ -159,10 +225,11 @@ export function createRenderer(canvas) {
     ctx.fillRect(cx - 1, y + 6, 8, 4);
   }
 
-  function draw(world, player, skyline, particles) {
-    clear();
-    drawSkyline(skyline, world.distance || 0);
-    drawGround();
+  function draw(world, player, skyline, particles, themeName) {
+    const t = THEMES[themeName] || THEMES.night;
+    clear(t);
+    drawSkyline(skyline, world.distance || 0, t);
+    drawGround(t);
     for (const o of world.obstacles) drawObstacle(o);
     // Coins as gold diamonds so they read differently from square obstacles.
     ctx.fillStyle = COLORS.coin;

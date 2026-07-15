@@ -65,18 +65,17 @@ export const COIN = {
   maxPerCluster: 3, // rng picks 0..this many coins per spawn
 };
 
-// Parallax Detroit skyline (v1.2). Cosmetic only — generated from its OWN seed,
-// never the gameplay stream, so obstacle/coin determinism is untouched (§4).
+// Parallax Detroit skyline (v1.2, pixel-art rework v1.3). Cosmetic only —
+// generated from its OWN seed, never the gameplay stream (§4). A curated Detroit
+// silhouette (Renaissance Center, gothic spires, brick riverfront towers) plus
+// seeded filler + far-layer distance. Colors live in the renderer's day/night
+// themes; this file is geometry only.
 export const SKYLINE_SEED = 0x1701d; // fixed cosmetic seed ("Detroit")
 export const SKYLINE = {
-  // Back-to-front layers. `factor` = scroll speed vs. the world (0 = static,
-  // 1 = foreground). Taller/darker far, shorter/lighter near for depth.
-  layers: [
-    { factor: 0.15, color: '#0d2038', minH: 60, maxH: 150, minW: 30, maxW: 70, gap: 8, baseY: 380 },
-    { factor: 0.35, color: '#122b47', minH: 40, maxH: 110, minW: 26, maxW: 60, gap: 10, baseY: 380 },
-  ],
-  spanTiles: 3, // generate this many screen-widths of buildings per layer, then wrap
-  litWindow: '#1d4e89', // occasional lit window accent
+  spanTiles: 2, // strip width = this many screen-widths, then wrap
+  farFactor: 0.18, // parallax scroll factor for the distant back layer
+  nearFactor: 0.42, // parallax scroll factor for the landmark front layer
+  baseY: 380, // buildings rise from here (== WORLD.groundY)
 };
 
 // Cosmetic particle FX (v1.2): jump dust, coin sparkle, death burst. Not part of

@@ -10,7 +10,7 @@ import { createWorld } from '../src/engine/world.js';
 import { createPlayer } from '../src/engine/player.js';
 import { playerHitsAny } from '../src/engine/collision.js';
 import { createScorer, resolveCoins } from '../src/engine/scoring.js';
-import { dayKey, seedFromDay, puzzleNumber } from '../src/daily.js';
+import { dayKey, seedFromDay, puzzleNumber, isDaytime } from '../src/daily.js';
 import { DT } from '../src/constants.js';
 
 // Headless run: step the sim at fixed DT, fire jumps at the scripted step
@@ -100,6 +100,16 @@ test('seedFromDay: stable per day, well-distributed across adjacent days', () =>
   assert.notEqual(a, b);
   assert.ok(Math.abs(a - b) > 1000, 'adjacent seeds must not be near-identical');
   assert.ok(a >= 0 && a <= 0xffffffff, 'seed is a uint32');
+});
+
+test('isDaytime: day vs night by Detroit local hour', () => {
+  // EDT (UTC-4) in July. 17:00Z == 13:00 Detroit -> day.
+  assert.equal(isDaytime(new Date('2026-07-15T17:00:00Z')), true);
+  // 05:00Z == 01:00 Detroit -> night.
+  assert.equal(isDaytime(new Date('2026-07-15T05:00:00Z')), false);
+  // Boundaries: 07:00 Detroit is day, 19:00 Detroit is night.
+  assert.equal(isDaytime(new Date('2026-07-15T11:00:00Z')), true); // 07:00 EDT
+  assert.equal(isDaytime(new Date('2026-07-15T23:00:00Z')), false); // 19:00 EDT
 });
 
 test('puzzleNumber: launch day is #1; counts days since LAUNCH_EPOCH', () => {
