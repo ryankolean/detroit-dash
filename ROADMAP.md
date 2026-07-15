@@ -41,8 +41,12 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [x] Detroit-icon bonus collectibles (Joe Louis fist, Spirit of Detroit,
       Guardian Building) — worth a bonus, advance the combo
 
-## v2.0
-- [ ] Global daily leaderboard (backend — Cloudflare Worker + KV; deferred Option B)
+## v2.0 — global daily leaderboard ✓ (code; deploy pending)
+- [x] Replay-verified scoring (client submits inputs; Worker recomputes score)
+- [x] Cloudflare Worker + KV (`worker/`), daily board, dedup + self-improve
+- [x] Client: record inputs, submit, render board + rank, offline fallback
+- [x] Ships disabled (`BACKEND_URL=''`); set it after `wrangler deploy` to enable
+      (see `worker/README.md`)
 
 ## v3.0
 - [ ] Daily-seed roguelite variant (Option C; calendar reminder 2026-07-20)

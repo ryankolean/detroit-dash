@@ -19,7 +19,9 @@ import { createAudio } from './engine/audio.js';
 import { load, save, recordRun, isLockedFor, computeStats } from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
-import { TIMEZONE } from './constants.js';
+import { fetchBoard, submitScore } from './net.js';
+import { sanitizeName } from './leaderboard.js';
+import { TIMEZONE, BACKEND_URL, CLIENT_KEY } from './constants.js';
 
 // --- DOM handles -----------------------------------------------------------
 const canvas = document.getElementById('stage');
@@ -147,6 +149,7 @@ function showResult({ score, best, streak, alreadyPlayed, isNewBest = false, bre
         <button id="result-stats-btn" type="button" class="result-secondary">Stats</button>
       </div>
       <p class="result-share-status" id="share-status" aria-live="polite"></p>
+      ${BACKEND_URL ? '<div id="board" class="result-board"></div>' : ''}
       ${footer}
     </div>`;
   resultEl.hidden = false;
@@ -237,6 +240,88 @@ window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !statsEl.hidden) closeStats();
 });
 
+// --- Global leaderboard (v2.0) ---------------------------------------------
+// Anonymous identity: a display name + a persisted client token. Never an
+// account or password (project rule) — the token just dedups the board.
+function loadClient() {
+  try {
+    const raw = localStorage.getItem(CLIENT_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* private mode */
+  }
+  return { name: null, clientId: null };
+}
+
+function ensureClient() {
+  const c = loadClient();
+  if (!c.clientId) {
+    c.clientId =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `c-${Date.now()}-${Math.floor(performance.now())}`;
+  }
+  if (!c.name) {
+    const input = window.prompt('Name for the leaderboard (max 16 characters):', '');
+    if (input === null) return null; // cancelled -> skip submission
+    c.name = sanitizeName(input);
+  }
+  try {
+    localStorage.setItem(CLIENT_KEY, JSON.stringify(c));
+  } catch {
+    /* best effort */
+  }
+  return c;
+}
+
+function renderBoard(data, myRank) {
+  const el = document.getElementById('board');
+  if (!el) return;
+  if (!data) {
+    el.innerHTML = '<p class="board-status">Leaderboard unavailable</p>';
+    return;
+  }
+  const entries = data.entries || [];
+  const rows = entries.length
+    ? entries
+        .slice(0, 10)
+        .map(
+          (e, i) =>
+            `<li${i + 1 === myRank ? ' class="board-me"' : ''}><span>${i + 1}. ${escapeHtml(e.name)}</span><span>${(e.score || 0).toLocaleString('en-US')} m</span></li>`,
+        )
+        .join('')
+    : '<li class="board-empty">Be the first to post today.</li>';
+  const rankLine =
+    myRank && myRank > 10 ? `<p class="board-rank">Your rank: #${myRank}</p>` : '';
+  el.innerHTML = `<h3>Today’s leaders</h3><ol class="board-list">${rows}</ol>${rankLine}`;
+}
+
+async function submitAndRenderBoard(day, jumpSteps) {
+  if (!BACKEND_URL) return;
+  const el = document.getElementById('board');
+  const client = ensureClient();
+  if (!client) {
+    // Name prompt cancelled — just show the board read-only.
+    renderBoardOnly(day);
+    return;
+  }
+  if (el) el.innerHTML = '<p class="board-status">Submitting…</p>';
+  const res = await submitScore(BACKEND_URL, {
+    dayKey: day,
+    jumpSteps,
+    name: client.name,
+    clientId: client.clientId,
+  });
+  renderBoard(res, res && res.rank);
+}
+
+async function renderBoardOnly(day) {
+  if (!BACKEND_URL) return;
+  const el = document.getElementById('board');
+  if (el) el.innerHTML = '<p class="board-status">Loading…</p>';
+  renderBoard(await fetchBoard(BACKEND_URL, day), null);
+}
+
 // --- Play a run ------------------------------------------------------------
 function startRun() {
   const rng = createRng(seed);
@@ -244,19 +329,29 @@ function startRun() {
   const player = createPlayer();
   const scorer = createScorer();
   const particles = createParticles();
+  const jumpSteps = []; // recorded input timeline for replay-verified submit (v2.0)
+  let step = 0;
+  let pendingJump = false;
   let over = false;
 
+  // Input just flags a jump; it's APPLIED at the next step boundary (below) so the
+  // live run matches replayScore(dayKey, jumpSteps) exactly — jump before update.
   const onJump = () => {
-    if (player.grounded) {
-      if (!reduceMotion) particles.jump(player.x + player.width / 2, player.y + player.height);
-      audio.jump();
-    }
-    player.jump();
+    pendingJump = true;
   };
   const unbindInput = bindInput({ target: canvas, onJump });
 
   const loop = createLoop({
     update(dt) {
+      if (pendingJump) {
+        pendingJump = false;
+        if (player.grounded) {
+          if (!reduceMotion) particles.jump(player.x + player.width / 2, player.y + player.height);
+          audio.jump();
+        }
+        jumpSteps.push(step);
+        player.jump();
+      }
       world.update(dt);
       player.update(dt);
       const got = resolveCoins(world.coins, player.box(), scorer); // collect / break combo
@@ -268,6 +363,7 @@ function startRun() {
       if (playerHitsAny(player.hitbox(), world.obstacles)) {
         endRun();
       }
+      step += 1;
     },
     render() {
       renderer.draw(world, player, skyline, particles, theme);
@@ -321,6 +417,7 @@ function startRun() {
       isNewBest,
       breakdown,
     });
+    submitAndRenderBoard(today, jumpSteps); // replay-verified leaderboard (v2.0)
   }
 
   loop.start();
@@ -336,6 +433,7 @@ if (!dev.enabled && isLockedFor(state, today)) {
     streak: state.currentStreak,
     alreadyPlayed: true,
   });
+  renderBoardOnly(today); // show today's board on the lock screen (v2.0)
 } else {
   startRun();
 }

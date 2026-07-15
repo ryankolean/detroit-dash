@@ -19,6 +19,14 @@ export const MUTE_KEY = 'detroit-dash/muted';
 // Public play URL, used in the share card (§5).
 export const PLAY_URL = 'https://ryankolean.github.io/detroit-dash/';
 
+// Leaderboard Worker URL (v2.0). Empty = leaderboard disabled; the game stays
+// fully playable with no backend. Set to the deployed Worker URL to enable
+// (see worker/README.md). No trailing slash.
+export const BACKEND_URL = '';
+
+// localStorage key for the leaderboard identity (display name + client token).
+export const CLIENT_KEY = 'detroit-dash/client';
+
 // Fixed simulation step (§8). The loop updates in whole steps of DT seconds so
 // the sim is deterministic and headless-steppable for the keystone test (§9).
 export const DT = 1 / 60;
