@@ -8,7 +8,6 @@ const COLORS = {
   ground: '#13315c',
   groundLine: '#1d4e89',
   player: '#ff6b35', // Summit orange (§7)
-  obstacle: '#8fb8de',
   coin: '#ffd166', // gold collectible (v1.1)
 };
 
@@ -76,12 +75,95 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
+  // Canvas-drawn obstacles (v1.2), themed by height so they read as hazards, not
+  // as the player. Clipped to the collision box so shape never exceeds hitbox.
+  function drawObstacle(o) {
+    const { x, y, w, h } = o;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, w, h);
+    ctx.clip();
+    if (h <= 40) {
+      // Short hazard post — yellow/black vertical bands.
+      ctx.fillStyle = '#f2c14e';
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#161616';
+      for (let bx = x; bx < x + w; bx += 12) ctx.fillRect(bx, y, 6, h);
+    } else if (h <= 56) {
+      // Road barrier — red/white horizontal bands.
+      ctx.fillStyle = '#c0392b';
+      ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#ecf0f1';
+      for (let by = y + 4; by < y + h; by += 16) ctx.fillRect(x, by, w, 8);
+    } else {
+      // Steel crate — gray with a riveted border + cross braces.
+      ctx.fillStyle = '#7f93a8';
+      ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = '#465767';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + w, y + h);
+      ctx.moveTo(x + w, y);
+      ctx.lineTo(x, y + h);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Canvas-drawn runner (v1.2): head, torso, swinging limbs. Legs cycle from the
+  // scroll distance while grounded; tuck into a jump pose while airborne.
+  function drawPlayer(p, distance) {
+    const { x, y, width: w, height: h } = p;
+    const cx = x + w / 2;
+    const grounded = p.grounded !== false; // plain test objects (no field) run
+    const swing = Math.sin((distance || 0) * 0.05);
+    const hipY = y + h - 14;
+
+    // Legs
+    ctx.strokeStyle = '#c44a1e';
+    ctx.lineWidth = 4;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    if (grounded) {
+      ctx.moveTo(cx - 3, hipY);
+      ctx.lineTo(cx - 3 + swing * 7, y + h);
+      ctx.moveTo(cx + 3, hipY);
+      ctx.lineTo(cx + 3 - swing * 7, y + h);
+    } else {
+      ctx.moveTo(cx - 3, hipY);
+      ctx.lineTo(cx - 7, y + h - 5);
+      ctx.moveTo(cx + 3, hipY);
+      ctx.lineTo(cx + 8, y + h - 7);
+    }
+    ctx.stroke();
+
+    // Torso
+    ctx.fillStyle = COLORS.player;
+    ctx.fillRect(x + 6, y + 12, w - 12, h - 26);
+
+    // Trailing arm (swings opposite the legs)
+    ctx.strokeStyle = '#c44a1e';
+    ctx.beginPath();
+    ctx.moveTo(cx + 2, y + 18);
+    ctx.lineTo(cx + 2 + (grounded ? -swing * 8 : 10), y + 27);
+    ctx.stroke();
+
+    // Head + visor
+    ctx.fillStyle = COLORS.player;
+    ctx.beginPath();
+    ctx.arc(cx, y + 9, 9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0b1d33';
+    ctx.fillRect(cx - 1, y + 6, 8, 4);
+  }
+
   function draw(world, player, skyline, particles) {
     clear();
     drawSkyline(skyline, world.distance || 0);
     drawGround();
-    ctx.fillStyle = COLORS.obstacle;
-    for (const o of world.obstacles) ctx.fillRect(o.x, o.y, o.w, o.h);
+    for (const o of world.obstacles) drawObstacle(o);
     // Coins as gold diamonds so they read differently from square obstacles.
     ctx.fillStyle = COLORS.coin;
     for (const c of world.coins) {
@@ -95,8 +177,7 @@ export function createRenderer(canvas) {
       ctx.closePath();
       ctx.fill();
     }
-    ctx.fillStyle = COLORS.player;
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+    drawPlayer(player, world.distance || 0);
     drawParticles(particles);
   }
 
