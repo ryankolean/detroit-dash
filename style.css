@@ -1,0 +1,75 @@
+/* Detroit Dash — v1.0 minimal styles.
+   TODO(v1.0): pull in a Summit-ish web font + brand palette where trivial (§7).
+   Keep it minimal for v1: reset, center the canvas, basic HUD. No parallax/particles. */
+
+/* Minimal reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --bg: #0b1d33;        /* deep navy */
+  --fg: #f0f6ff;        /* light tint */
+  --accent: #ff6b35;    /* orange */
+  color-scheme: dark;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  min-height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: system-ui, sans-serif; /* TODO(v1.0): swap for brand font (§7). */
+  display: flex;
+  overflow: hidden; /* game is a fixed surface; no page scroll */
+}
+
+#game {
+  margin: auto;
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+/* HUD — score, streak, puzzle number (§5, §7) */
+#hud {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(0.9rem, 3vw, 1.1rem);
+}
+
+/* Canvas — the game surface, centered and responsive-width */
+#stage {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: #0e2440;
+  border-radius: 8px;
+  touch-action: manipulation; /* prevent double-tap zoom eating jump input */
+}
+
+#hint {
+  opacity: 0.7;
+  font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+}
+
+/* TODO(v1.0): result-screen overlay styles (centered card over canvas) (§5). */
+#result {
+  width: 100%;
+}
