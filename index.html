@@ -15,17 +15,18 @@
       <span id="hud-puzzle">Detroit Dash #—</span>
       <span id="hud-score">0 m</span>
       <span id="hud-streak">🔥 0</span>
+      <button id="stats-btn" type="button" aria-label="View stats and history">📊</button>
       <button id="mute-btn" type="button" aria-label="Toggle sound">🔊</button>
     </header>
 
     <!-- Canvas is the whole game surface. Size is set in JS from devicePixelRatio (§8, renderer). -->
-    <canvas id="stage" width="800" height="450" aria-label="Detroit Dash game area"></canvas>
+    <canvas id="stage" width="800" height="450" role="img" aria-label="Detroit Dash game area"></canvas>
 
-    <!-- TODO(v1.0): result screen overlay — score, distance, best, streak, Share button, countdown (§5, §6).
-         Rendered/toggled by main.js; markup can live here hidden or be built in JS. -->
-    <section id="result" hidden>
-      <!-- TODO(v1.0): populated on death or on one-shot lock. -->
-    </section>
+    <!-- Result / lock overlay — populated by main.js on death or one-shot lock (§5, §6). -->
+    <section id="result" role="dialog" aria-modal="true" aria-label="Run result" hidden></section>
+
+    <!-- Stats / history overlay (v1.3) — populated by main.js when opened. -->
+    <section id="stats" role="dialog" aria-modal="true" aria-label="Stats and history" hidden></section>
 
     <!-- One-line hint; the game needs no tutorial (success criteria §1). -->
     <p id="hint">Tap, click, Space, or ↑ to jump</p>

@@ -26,6 +26,16 @@ test('coin score accumulates base * multiplier per pickup', () => {
   assert.equal(s.coinScore, 200);
 });
 
+test('maxMultiplier retains the highest combo tier even after a miss', () => {
+  const s = createScorer();
+  for (let i = 0; i < 5; i++) s.collect(); // tiers 1,1,2,2,3
+  assert.equal(s.multiplier, 3);
+  assert.equal(s.maxMultiplier, 3);
+  s.miss();
+  assert.equal(s.multiplier, 1);
+  assert.equal(s.maxMultiplier, 3); // peak kept for the result card
+});
+
 test('miss resets combo to x1 (the streak breaks)', () => {
   const s = createScorer();
   s.collect();

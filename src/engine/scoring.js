@@ -14,6 +14,7 @@ export function createScorer() {
   const s = {
     comboCount: 0, // current consecutive pickups (the streak combo)
     multiplier: 1,
+    maxMultiplier: 1, // highest multiplier reached this run (for the result card)
     coinScore: 0,
     coinsCollected: 0,
     iconsCollected: 0,
@@ -22,6 +23,7 @@ export function createScorer() {
     collect(coin) {
       s.comboCount += 1;
       s.multiplier = Math.min(COIN.maxMult, Math.ceil(s.comboCount / COIN.comboStep));
+      if (s.multiplier > s.maxMultiplier) s.maxMultiplier = s.multiplier;
       const isIcon = coin && coin.icon != null;
       s.coinScore += (isIcon ? COIN.iconBonus : COIN.base) * s.multiplier;
       s.coinsCollected += 1;

@@ -18,6 +18,26 @@ function zeroState() {
 }
 
 /**
+ * computeStats — aggregate the save state for the stats screen (v1.3). Pure.
+ * @param {SaveState} state
+ * @returns {{ games:number, best:number, average:number, currentStreak:number,
+ *             maxStreak:number, recent:Array<{day:string,score:number}> }}
+ */
+export function computeStats(state) {
+  const history = Array.isArray(state.history) ? state.history : [];
+  const games = history.length;
+  const total = history.reduce((sum, h) => sum + (h.score || 0), 0);
+  return {
+    games,
+    best: state.bestScore || 0,
+    average: games ? Math.round(total / games) : 0,
+    currentStreak: state.currentStreak || 0,
+    maxStreak: state.maxStreak || 0,
+    recent: history.slice(-10).reverse(), // newest first
+  };
+}
+
+/**
  * previousDayKey — the calendar day before a "YYYYMMDD" key. Uses UTC-midnight
  * epoch math on the plain Y/M/D, so no timezone/DST enters (a calendar day is a
  * calendar day). Exported for tests.

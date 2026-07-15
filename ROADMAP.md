@@ -28,11 +28,12 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [x] Particle FX
 - [x] Sound (with mute toggle)
 
-## v1.3
-- [ ] Photo-accurate pixel-art Detroit skyline, day/night variant by local time
-- [ ] Stats / history screen
-- [ ] Result-card polish
-- [ ] Accessibility pass
+## v1.3 ✓
+- [x] Photo-accurate pixel-art Detroit skyline, day/night variant by local time
+- [x] Stats / history screen (games, best, average, streaks, recent runs)
+- [x] Result-card polish (new-best badge, run breakdown, max combo)
+- [x] Accessibility pass (dialog roles, focus management, Esc, focus-visible,
+      reduced-motion)
 
 ## v1.4 — Detroit flavor ✓
 - [x] Detroit-hazard obstacle sprites (Michigan orange barrel, People Mover
