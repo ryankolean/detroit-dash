@@ -1,0 +1,12 @@
+{
+  "name": "detroit-dash",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Detroit Dash — daily one-shot dodge-runner, a Summit portfolio game.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  },
+  "license": "MIT",
+  "author": "Ryan Kolean / Summit Software Solutions LLC"
+}

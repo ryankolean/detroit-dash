@@ -1,0 +1,18 @@
+# Dependencies (v1.0 has none, but guard against accidental installs)
+node_modules/
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Logs
+*.log
+npm-debug.log*
+
+# Env / secrets — never commit
+.env
+.env.*
