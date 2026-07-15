@@ -36,6 +36,7 @@ function headlessRun(seed, jumpSteps = []) {
     score: scorer.total(Math.floor(world.meters)),
     distance: Math.floor(world.meters),
     coins: scorer.coinsCollected,
+    icons: scorer.iconsCollected,
     steps: step,
   };
 }
@@ -43,8 +44,9 @@ function headlessRun(seed, jumpSteps = []) {
 const DAY = '20260715';
 const SEED = seedFromDay(DAY); // 313789980
 
-// Frozen well-timed jump schedule for SEED (derived once). Collects 8 coins.
-const JUMP_TIMELINE = [158, 208, 266, 312, 354, 403, 440, 477, 514];
+// Frozen well-timed jump schedule for SEED (derived once). Collects 7 coins +
+// 1 Detroit-icon bonus token.
+const JUMP_TIMELINE = [158, 208, 266, 317, 366, 403, 440, 485, 522];
 
 test('keystone: no-input run dies at an exact pinned score', () => {
   const r = headlessRun(SEED);
@@ -54,14 +56,15 @@ test('keystone: no-input run dies at an exact pinned score', () => {
   assert.equal(r.steps, 180);
 });
 
-test('keystone: scripted jump timeline -> exact pinned score (distance + combo)', () => {
-  // If world spawn, coin layout, physics, collision, or combo math drift, this
-  // exact score changes and the test fails. This is the "same for everyone" pin.
+test('keystone: scripted jump timeline -> exact pinned score (distance + combo + icon)', () => {
+  // If world spawn, coin/icon layout, physics, collision, or combo math drift,
+  // this exact score changes and the test fails. The "same for everyone" pin.
   const r = headlessRun(SEED, JUMP_TIMELINE);
-  assert.equal(r.distance, 368);
-  assert.equal(r.coins, 8);
-  assert.equal(r.score, 818); // 368 distance + coin/combo score
-  assert.equal(r.steps, 548);
+  assert.equal(r.distance, 374);
+  assert.equal(r.coins, 7);
+  assert.equal(r.icons, 1); // one Detroit-icon bonus token collected
+  assert.equal(r.score, 1074); // distance + coin/combo + icon bonus
+  assert.equal(r.steps, 554);
 });
 
 test('keystone: same seed + same inputs -> identical result (reproducible)', () => {

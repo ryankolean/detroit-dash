@@ -16,12 +16,16 @@ export function createScorer() {
     multiplier: 1,
     coinScore: 0,
     coinsCollected: 0,
+    iconsCollected: 0,
 
-    collect() {
+    // `coin` may carry an `icon` (a Detroit-icon bonus token, v1.4) worth more.
+    collect(coin) {
       s.comboCount += 1;
       s.multiplier = Math.min(COIN.maxMult, Math.ceil(s.comboCount / COIN.comboStep));
-      s.coinScore += COIN.base * s.multiplier;
+      const isIcon = coin && coin.icon != null;
+      s.coinScore += (isIcon ? COIN.iconBonus : COIN.base) * s.multiplier;
       s.coinsCollected += 1;
+      if (isIcon) s.iconsCollected += 1;
     },
 
     miss() {
@@ -51,8 +55,8 @@ export function resolveCoins(coins, playerBox, scorer) {
   for (let i = coins.length - 1; i >= 0; i--) {
     const c = coins[i];
     if (aabbIntersects(playerBox, c)) {
-      scorer.collect();
-      collected.push({ x: c.x + c.w / 2, y: c.y + c.h / 2 });
+      scorer.collect(c);
+      collected.push({ x: c.x + c.w / 2, y: c.y + c.h / 2, icon: c.icon ?? null });
       coins.splice(i, 1);
     } else if (c.x + c.w < playerBox.x) {
       scorer.miss(); // fully past the player, never collected -> combo breaks

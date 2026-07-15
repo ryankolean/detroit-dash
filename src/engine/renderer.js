@@ -141,8 +141,8 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
-  // Canvas-drawn obstacles (v1.2), themed by height so they read as hazards, not
-  // as the player. Clipped to the collision box so shape never exceeds hitbox.
+  // Detroit-flavored hazard obstacles (v1.4), themed by height so they read as
+  // things you'd dodge downtown. Clipped to the collision box (never exceeds it).
   function drawObstacle(o) {
     const { x, y, w, h } = o;
     ctx.save();
@@ -150,30 +150,33 @@ export function createRenderer(canvas) {
     ctx.rect(x, y, w, h);
     ctx.clip();
     if (h <= 40) {
-      // Short hazard post — yellow/black vertical bands.
-      ctx.fillStyle = '#f2c14e';
+      // Michigan orange construction barrel — the state's unofficial mascot.
+      ctx.fillStyle = '#e8620a';
       ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#161616';
-      for (let bx = x; bx < x + w; bx += 12) ctx.fillRect(bx, y, 6, h);
+      ctx.fillStyle = '#f3f3f3'; // reflective bands
+      ctx.fillRect(x, y + h * 0.28, w, 6);
+      ctx.fillRect(x, y + h * 0.62, w, 6);
+      ctx.fillStyle = '#7a3406'; // rim shadows
+      ctx.fillRect(x, y, w, 3);
+      ctx.fillRect(x, y + h - 3, w, 3);
     } else if (h <= 56) {
-      // Road barrier — red/white horizontal bands.
-      ctx.fillStyle = '#c0392b';
+      // People Mover support pillar — concrete column + blue transit band.
+      ctx.fillStyle = '#9aa4ad';
       ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#ecf0f1';
-      for (let by = y + 4; by < y + h; by += 16) ctx.fillRect(x, by, w, 8);
+      ctx.fillStyle = '#7b858e'; // shaded right side
+      ctx.fillRect(x + w - 5, y, 5, h);
+      ctx.fillStyle = '#1f6fb0'; // People Mover blue band + window
+      ctx.fillRect(x, y + 6, w, 14);
+      ctx.fillStyle = '#cfe6f5';
+      ctx.fillRect(x + 4, y + 9, w - 8, 8);
     } else {
-      // Steel crate — gray with a riveted border + cross braces.
-      ctx.fillStyle = '#7f93a8';
+      // Factory smokestack — Detroit industry. Brick with band rings + steel cap.
+      ctx.fillStyle = '#8a3b2e';
       ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = '#465767';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(x + 1.5, y + 1.5, w - 3, h - 3);
-      ctx.beginPath();
-      ctx.moveTo(x, y);
-      ctx.lineTo(x + w, y + h);
-      ctx.moveTo(x + w, y);
-      ctx.lineTo(x, y + h);
-      ctx.stroke();
+      ctx.fillStyle = '#a5624e'; // mortar band rings
+      for (let by = y + 12; by < y + h; by += 18) ctx.fillRect(x, by, w, 4);
+      ctx.fillStyle = '#5a5f66'; // steel cap
+      ctx.fillRect(x - 1, y, w + 2, 8);
     }
     ctx.restore();
   }
@@ -225,17 +228,59 @@ export function createRenderer(canvas) {
     ctx.fillRect(cx - 1, y + 6, 8, 4);
   }
 
+  // Detroit-icon bonus collectible (v1.4): a teal badge with a landmark emblem —
+  // 0 Joe Louis fist, 1 Spirit of Detroit, 2 Guardian Building.
+  function drawIcon(c) {
+    const cx = c.x + c.w / 2;
+    const cy = c.y + c.h / 2;
+    const R = c.w * 0.72;
+    const s = R;
+    ctx.fillStyle = 'rgba(255,209,102,0.28)'; // glow
+    ctx.beginPath();
+    ctx.arc(cx, cy, R + 3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#0e6b78'; // Detroit teal badge
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#ffd166';
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffe9a8'; // emblem
+    if (c.icon === 0) {
+      // Joe Louis "The Fist" — forearm + fist block.
+      ctx.fillRect(cx - s * 0.7, cy - s * 0.18, s * 0.9, s * 0.36);
+      ctx.fillRect(cx + s * 0.1, cy - s * 0.32, s * 0.5, s * 0.64);
+    } else if (c.icon === 1) {
+      // Spirit of Detroit — glowing orb held aloft.
+      ctx.beginPath();
+      ctx.arc(cx, cy - s * 0.2, s * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillRect(cx - s * 0.5, cy + s * 0.25, s, s * 0.18);
+    } else {
+      // Guardian Building — art-deco stepped tower.
+      ctx.fillRect(cx - s * 0.18, cy - s * 0.6, s * 0.36, s * 1.2);
+      ctx.fillRect(cx - s * 0.4, cy - s * 0.15, s * 0.8, s * 0.75);
+      ctx.fillRect(cx - s * 0.55, cy + s * 0.3, s * 1.1, s * 0.35);
+    }
+  }
+
   function draw(world, player, skyline, particles, themeName) {
     const t = THEMES[themeName] || THEMES.night;
     clear(t);
     drawSkyline(skyline, world.distance || 0, t);
     drawGround(t);
     for (const o of world.obstacles) drawObstacle(o);
-    // Coins as gold diamonds so they read differently from square obstacles.
-    ctx.fillStyle = COLORS.coin;
     for (const c of world.coins) {
+      if (c.icon != null) {
+        drawIcon(c);
+        continue;
+      }
+      // Plain coin — gold diamond, reads differently from square obstacles.
       const cx = c.x + c.w / 2;
       const cy = c.y + c.h / 2;
+      ctx.fillStyle = COLORS.coin;
       ctx.beginPath();
       ctx.moveTo(cx, c.y);
       ctx.lineTo(c.x + c.w, cy);

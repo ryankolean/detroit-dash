@@ -45,13 +45,21 @@ export function createWorld(opts) {
       const coinY = elevated
         ? WORLD.groundY - COIN.elevatedY
         : WORLD.groundY - COIN.size;
+      const before = w.coins.length;
       for (let i = 0; i < coinCount; i++) {
         w.coins.push({
           x: WORLD.width + COIN.leadOffset + i * COIN.clusterGap,
           y: coinY,
           w: COIN.size,
           h: COIN.size,
+          icon: null,
         });
+      }
+      // Occasionally make the lead coin a Detroit-icon bonus token. One rng draw
+      // gates it and picks the icon, so the collectible layout stays deterministic.
+      const iconRoll = rng.next();
+      if (coinCount > 0 && iconRoll < COIN.iconChance) {
+        w.coins[before].icon = Math.floor((iconRoll / COIN.iconChance) * COIN.iconTypes);
       }
     },
 

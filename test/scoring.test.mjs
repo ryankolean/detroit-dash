@@ -40,6 +40,24 @@ test('miss resets combo to x1 (the streak breaks)', () => {
   assert.equal(s.coinScore, 50 + 50 + 100 + 50);
 });
 
+test('icon token awards the icon bonus (x multiplier), still advances combo', () => {
+  const s = createScorer();
+  s.collect(); // plain coin, mult 1 -> +50
+  s.collect(); // plain coin, mult 1 -> +50
+  s.collect({ icon: 0 }); // icon, mult 2 -> +iconBonus*2
+  assert.equal(s.iconsCollected, 1);
+  assert.equal(s.coinsCollected, 3);
+  assert.equal(s.multiplier, 2);
+  assert.equal(s.coinScore, COIN.base + COIN.base + COIN.iconBonus * 2);
+});
+
+test('icon token with null icon is treated as a plain coin', () => {
+  const s = createScorer();
+  s.collect({ icon: null });
+  assert.equal(s.iconsCollected, 0);
+  assert.equal(s.coinScore, COIN.base);
+});
+
 test('total adds coin score to the distance score', () => {
   const s = createScorer();
   s.collect(); // +50

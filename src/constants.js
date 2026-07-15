@@ -63,6 +63,9 @@ export const COIN = {
   comboStep: 2, // coins per multiplier tier (2 coins -> +1x)
   maxMult: 5, // multiplier cap
   maxPerCluster: 3, // rng picks 0..this many coins per spawn
+  iconChance: 0.35, // chance a cluster's lead coin is a Detroit-icon bonus (v1.4)
+  iconBonus: 200, // base points for an icon token (before the combo multiplier)
+  iconTypes: 3, // Joe Louis fist, Spirit of Detroit, Guardian Building
 };
 
 // Parallax Detroit skyline (v1.2, pixel-art rework v1.3). Cosmetic only —

@@ -34,9 +34,11 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [ ] Result-card polish
 - [ ] Accessibility pass
 
-## v1.4 — Detroit flavor
-- [ ] Sprites of notable Detroit icons (Renaissance Center, Spirit of Detroit,
-      Guardian Building, Joe Louis fist, Fox Theatre) as obstacles/collectibles
+## v1.4 — Detroit flavor ✓
+- [x] Detroit-hazard obstacle sprites (Michigan orange barrel, People Mover
+      pillar, factory smokestack)
+- [x] Detroit-icon bonus collectibles (Joe Louis fist, Spirit of Detroit,
+      Guardian Building) — worth a bonus, advance the combo
 
 ## v2.0
 - [ ] Global daily leaderboard (backend — Cloudflare Worker + KV; deferred Option B)
