@@ -14,6 +14,7 @@ import { bindInput } from './engine/input.js';
 import { playerHitsAny } from './engine/collision.js';
 import { load, save, recordRun, isLockedFor } from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
+import { getDevConfig } from './dev.js';
 import { TIMEZONE } from './constants.js';
 
 // --- DOM handles -----------------------------------------------------------
@@ -25,12 +26,16 @@ const resultEl = document.getElementById('result');
 const hintEl = document.getElementById('hint');
 
 // --- Puzzle identity -------------------------------------------------------
+// Dev flags (?dev / ?day= / ?seed=) let us test mechanics without the one-shot
+// lock. Inert in production — the live URL carries no query string (see dev.js).
+const dev = getDevConfig();
 const now = new Date();
-const today = dayKey(now);
+const today = dev.day ?? dayKey(now);
 const puzzleNo = puzzleNumber(today);
+const seed = dev.seed ?? seedFromDay(today);
 const state = load();
 
-hudPuzzle.textContent = `Detroit Dash #${puzzleNo}`;
+hudPuzzle.textContent = `Detroit Dash #${puzzleNo}${dev.enabled ? ' · DEV' : ''}`;
 hudStreak.textContent = `🔥 ${state.currentStreak}`;
 
 const renderer = createRenderer(canvas);
@@ -62,9 +67,18 @@ function formatHMS(totalSec) {
 let countdownTimer = null;
 
 function showResult({ score, best, streak, alreadyPlayed }) {
+  if (countdownTimer !== null) {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+
   const headline = alreadyPlayed
     ? "You've already played today"
     : 'Run over';
+  // Dev mode: unlimited replays -> a Play again button instead of the countdown.
+  const footer = dev.enabled
+    ? '<button id="replay-btn" type="button" class="result-replay">Play again</button>'
+    : '<p class="result-countdown">Next dash in <span id="countdown">--:--:--</span></p>';
   resultEl.innerHTML = `
     <div class="result-card">
       <h2>${headline}</h2>
@@ -75,7 +89,7 @@ function showResult({ score, best, streak, alreadyPlayed }) {
       </dl>
       <button id="share-btn" type="button">Share</button>
       <p class="result-share-status" id="share-status" aria-live="polite"></p>
-      <p class="result-countdown">Next dash in <span id="countdown">--:--:--</span></p>
+      ${footer}
     </div>`;
   resultEl.hidden = false;
   hintEl.hidden = true;
@@ -92,6 +106,15 @@ function showResult({ score, best, streak, alreadyPlayed }) {
     }
   });
 
+  if (dev.enabled) {
+    document.getElementById('replay-btn').addEventListener('click', () => {
+      resultEl.hidden = true;
+      hintEl.hidden = false;
+      startRun();
+    });
+    return;
+  }
+
   const countdownEl = document.getElementById('countdown');
   const tick = () => {
     const remaining = secondsUntilNextMidnight(new Date());
@@ -104,7 +127,7 @@ function showResult({ score, best, streak, alreadyPlayed }) {
 
 // --- Play a run ------------------------------------------------------------
 function startRun() {
-  const rng = createRng(seedFromDay(today));
+  const rng = createRng(seed);
   const world = createWorld({ rng });
   const player = createPlayer();
   let over = false;
@@ -131,6 +154,19 @@ function startRun() {
     loop.stop();
     unbindInput();
     const score = Math.floor(world.meters);
+
+    if (dev.enabled) {
+      // Don't persist — testing must not pollute real streak/best. Show the run
+      // score against the untouched stored stats.
+      showResult({
+        score,
+        best: Math.max(state.bestScore, score),
+        streak: state.currentStreak,
+        alreadyPlayed: false,
+      });
+      return;
+    }
+
     const next = recordRun(state, { todayKey: today, score });
     save(next);
     hudStreak.textContent = `🔥 ${next.currentStreak}`;
@@ -146,7 +182,7 @@ function startRun() {
 }
 
 // --- Boot ------------------------------------------------------------------
-if (isLockedFor(state, today)) {
+if (!dev.enabled && isLockedFor(state, today)) {
   // One-shot lock: straight to the result/lock screen, no replay (§6).
   const played = state.history.find((h) => h.day === today);
   showResult({

@@ -33,6 +33,21 @@ Run the tests (headless, no framework — Node's built-in test runner):
 npm test   # node --test
 ```
 
+## Dev mode (testing without the one-shot lock)
+
+The daily one-shot lock makes iterating on mechanics slow — you get one run per
+day. Append a query flag to bypass it. Dev mode is URL-only, so the live Pages
+URL (no query string) always behaves as the real one-shot game.
+
+- `?dev` — bypass the lock, replay unlimited, **no persistence** (your real
+  streak/best are untouched), a `DEV` badge in the HUD, and a **Play again**
+  button on the result screen.
+- `?day=YYYYMMDD` — force a specific daily course (implies `?dev`).
+- `?seed=<uint32>` — force a raw seed directly (implies `?dev`).
+
+Examples: `http://localhost:8000/?dev`, `?day=20260720`, `?seed=12345`,
+`?dev&day=20260101&seed=99`.
+
 ## Deploy
 
 GitHub Pages, **Deploy from branch → `main` / root**. No build step means the

@@ -146,6 +146,22 @@ body {
   filter: brightness(1.1);
 }
 
+/* Dev-mode replay button — outlined, secondary to Share. */
+.result-replay {
+  padding: 0.6rem 1.2rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.result-replay:hover {
+  background: rgba(255, 107, 53, 0.15);
+}
+
 .result-share-status {
   min-height: 1.2em;
   font-size: 0.85rem;
