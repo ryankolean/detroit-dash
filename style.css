@@ -55,6 +55,21 @@ body {
   font-size: clamp(0.9rem, 3vw, 1.1rem);
 }
 
+/* Mute toggle — icon button in the HUD (v1.2) */
+#mute-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.1rem 0.2rem;
+  opacity: 0.85;
+}
+
+#mute-btn:hover {
+  opacity: 1;
+}
+
 /* Canvas — the game surface, centered and responsive-width */
 #stage {
   width: 100%;

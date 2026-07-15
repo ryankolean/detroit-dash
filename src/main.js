@@ -15,6 +15,7 @@ import { playerHitsAny } from './engine/collision.js';
 import { createScorer, resolveCoins } from './engine/scoring.js';
 import { createSkyline } from './engine/skyline.js';
 import { createParticles } from './engine/particles.js';
+import { createAudio } from './engine/audio.js';
 import { load, save, recordRun, isLockedFor } from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
@@ -25,6 +26,7 @@ const canvas = document.getElementById('stage');
 const hudPuzzle = document.getElementById('hud-puzzle');
 const hudScore = document.getElementById('hud-score');
 const hudStreak = document.getElementById('hud-streak');
+const muteBtn = document.getElementById('mute-btn');
 const resultEl = document.getElementById('result');
 const hintEl = document.getElementById('hint');
 
@@ -46,6 +48,18 @@ window.addEventListener('resize', () => renderer.resize());
 
 // Cosmetic parallax skyline — built once from its own seed, shared across runs.
 const skyline = createSkyline();
+
+// Sound + persisted mute toggle (v1.2).
+const audio = createAudio();
+function renderMute() {
+  muteBtn.textContent = audio.muted ? '🔇' : '🔊';
+}
+renderMute();
+muteBtn.addEventListener('click', () => {
+  audio.toggleMute();
+  if (!audio.muted) audio.resume(); // unmuting is a gesture — warm the context
+  renderMute();
+});
 
 // --- Countdown to the next Detroit midnight (§5, §6) -----------------------
 function secondsUntilNextMidnight(when) {
@@ -141,7 +155,10 @@ function startRun() {
   let over = false;
 
   const onJump = () => {
-    if (player.grounded) particles.jump(player.x + player.width / 2, player.y + player.height);
+    if (player.grounded) {
+      particles.jump(player.x + player.width / 2, player.y + player.height);
+      audio.jump();
+    }
     player.jump();
   };
   const unbindInput = bindInput({ target: canvas, onJump });
@@ -151,7 +168,10 @@ function startRun() {
       world.update(dt);
       player.update(dt);
       const got = resolveCoins(world.coins, player.box(), scorer); // collect / break combo
-      for (const c of got) particles.coin(c.x, c.y); // sparkle FX
+      for (const c of got) {
+        particles.coin(c.x, c.y); // sparkle FX
+        audio.coin();
+      }
       particles.update(dt);
       if (playerHitsAny(player.hitbox(), world.obstacles)) {
         endRun();
@@ -170,6 +190,7 @@ function startRun() {
     over = true;
     // Death burst at the player, drawn once before the loop stops.
     particles.death(player.x + player.width / 2, player.y + player.height / 2);
+    audio.death();
     renderer.draw(world, player, skyline, particles);
     loop.stop();
     unbindInput();

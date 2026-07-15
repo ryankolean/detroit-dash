@@ -12,6 +12,10 @@ export const TIMEZONE = 'America/Detroit';
 // localStorage namespace (§6). Bump the version suffix only on a breaking schema change.
 export const STORAGE_KEY = 'detroit-dash/v1';
 
+// localStorage key for the sound mute preference (v1.2). Separate from the save
+// state so audio settings never risk the score schema.
+export const MUTE_KEY = 'detroit-dash/muted';
+
 // Public play URL, used in the share card (§5).
 export const PLAY_URL = 'https://ryankolean.github.io/detroit-dash/';
 
