@@ -14,11 +14,12 @@ import { PLAY_URL } from './constants.js';
  * @returns {string}
  */
 export function buildShareText(result) {
-  // TODO(v1.0): format distance with thousands separators (e.g. toLocaleString),
-  // assemble the three lines exactly as above, append PLAY_URL. No course detail.
-  void result;
-  void PLAY_URL;
-  throw new Error('TODO(v1.0): implement buildShareText');
+  const dist = Math.floor(result.distance).toLocaleString('en-US');
+  return [
+    `Detroit Dash #${result.puzzleNumber}`,
+    `${dist} m · 🔥 ${result.streak}-day streak`,
+    PLAY_URL,
+  ].join('\n');
 }
 
 /**
@@ -27,8 +28,24 @@ export function buildShareText(result) {
  * @returns {Promise<void>}
  */
 export function copyShareText(text) {
-  // TODO(v1.0): navigator.clipboard.writeText(text) with a fallback for older
-  // mobile browsers (hidden textarea + document.execCommand('copy')).
-  void text;
-  throw new Error('TODO(v1.0): implement copyShareText');
+  if (navigator.clipboard?.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback for older mobile browsers without the async clipboard API.
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      resolve();
+    } catch (err) {
+      reject(err);
+    }
+  });
 }

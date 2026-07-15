@@ -20,15 +20,20 @@ export function mulberry32(seed) {
   };
 }
 
-// TODO(v1.0): build a small stream API on top of mulberry32 that world.js/player.js
-// consume, so call sites don't touch raw floats. Suggested surface:
-//   export function createRng(seed) {
-//     const next = mulberry32(seed);
-//     return {
-//       next,                                   // float [0,1)
-//       range: (min, max) => min + next() * (max - min),
-//       int:   (min, max) => Math.floor(min + next() * (max - min + 1)),
-//       pick:  (arr) => arr[Math.floor(next() * arr.length)],
-//     };
-//   }
-// Keep it deterministic and dependency-free; add a test if the surface grows.
+/**
+ * createRng — a small deterministic stream API on top of mulberry32 (§4).
+ * All world/player generation draws from this, never raw floats or Math.random().
+ *
+ * @param {number} seed - 32-bit unsigned integer seed.
+ * @returns {{ next():number, range(min:number,max:number):number,
+ *             int(min:number,max:number):number, pick(arr:any[]):any }}
+ */
+export function createRng(seed) {
+  const next = mulberry32(seed);
+  return {
+    next, // float [0,1)
+    range: (min, max) => min + next() * (max - min),
+    int: (min, max) => Math.floor(min + next() * (max - min + 1)), // inclusive both ends
+    pick: (arr) => arr[Math.floor(next() * arr.length)],
+  };
+}

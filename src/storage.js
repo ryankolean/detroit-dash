@@ -4,6 +4,37 @@
 
 import { STORAGE_KEY } from './constants.js';
 
+const HISTORY_CAP = 60;
+
+/** A fresh zero-state save (§6). */
+function zeroState() {
+  return {
+    lastPlayedDay: null,
+    currentStreak: 0,
+    maxStreak: 0,
+    bestScore: 0,
+    history: [],
+  };
+}
+
+/**
+ * previousDayKey — the calendar day before a "YYYYMMDD" key. Uses UTC-midnight
+ * epoch math on the plain Y/M/D, so no timezone/DST enters (a calendar day is a
+ * calendar day). Exported for tests.
+ * @param {string} key - "YYYYMMDD"
+ * @returns {string} the prior day's key
+ */
+export function previousDayKey(key) {
+  const y = +key.slice(0, 4);
+  const m = +key.slice(4, 6);
+  const d = +key.slice(6, 8);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  const yyyy = prev.getUTCFullYear();
+  const mm = String(prev.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(prev.getUTCDate()).padStart(2, '0');
+  return `${yyyy}${mm}${dd}`;
+}
+
 /**
  * @typedef {Object} SaveState
  * @property {string}  lastPlayedDay  - day key "YYYYMMDD" of the last completed run.
@@ -18,10 +49,22 @@ import { STORAGE_KEY } from './constants.js';
  * @returns {SaveState}
  */
 export function load() {
-  // TODO(v1.0): read STORAGE_KEY from localStorage, JSON.parse, validate shape,
-  // fall back to a fresh zero-state on missing/corrupt data. Never throw.
-  void STORAGE_KEY;
-  throw new Error('TODO(v1.0): implement load');
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return zeroState();
+    const s = JSON.parse(raw);
+    if (!s || typeof s !== 'object') return zeroState();
+    // Shallow shape validation with zero-state fallbacks for any missing field.
+    return {
+      lastPlayedDay: typeof s.lastPlayedDay === 'string' ? s.lastPlayedDay : null,
+      currentStreak: Number.isFinite(s.currentStreak) ? s.currentStreak : 0,
+      maxStreak: Number.isFinite(s.maxStreak) ? s.maxStreak : 0,
+      bestScore: Number.isFinite(s.bestScore) ? s.bestScore : 0,
+      history: Array.isArray(s.history) ? s.history : [],
+    };
+  } catch {
+    return zeroState();
+  }
 }
 
 /**
@@ -29,10 +72,15 @@ export function load() {
  * @param {SaveState} state
  */
 export function save(state) {
-  // TODO(v1.0): JSON.stringify + write to STORAGE_KEY. Wrap in try/catch
-  // (private mode / quota). Cap history to the last ~60 entries before writing.
-  void state;
-  throw new Error('TODO(v1.0): implement save');
+  try {
+    const capped = {
+      ...state,
+      history: state.history.slice(-HISTORY_CAP),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(capped));
+  } catch {
+    // private mode / quota — persistence is best-effort, never throw.
+  }
 }
 
 /**
@@ -45,12 +93,25 @@ export function save(state) {
  * @returns {SaveState}
  */
 export function recordRun(prev, run) {
-  // TODO(v1.0): implement the streak transition using todayKey vs prev.lastPlayedDay
-  // (compute "yesterday" as a calendar-day delta, not string math). Keystone of
-  // test/streak.test.mjs — keep it pure so it can be tested with crafted states.
-  void prev;
-  void run;
-  throw new Error('TODO(v1.0): implement recordRun');
+  const { todayKey, score } = run;
+
+  // Same-day replay guard: never double-record today's one-shot (§6).
+  if (prev.lastPlayedDay === todayKey) return prev;
+
+  let currentStreak;
+  if (prev.lastPlayedDay && prev.lastPlayedDay === previousDayKey(todayKey)) {
+    currentStreak = prev.currentStreak + 1; // played yesterday -> continue
+  } else {
+    currentStreak = 1; // first run ever, or a gap -> reset
+  }
+
+  return {
+    lastPlayedDay: todayKey,
+    currentStreak,
+    maxStreak: Math.max(prev.maxStreak, currentStreak),
+    bestScore: Math.max(prev.bestScore, score),
+    history: [...prev.history, { day: todayKey, score }].slice(-HISTORY_CAP),
+  };
 }
 
 /**
@@ -62,8 +123,5 @@ export function recordRun(prev, run) {
  * @returns {boolean}
  */
 export function isLockedFor(state, todayKey) {
-  // TODO(v1.0): return state.lastPlayedDay === todayKey.
-  void state;
-  void todayKey;
-  throw new Error('TODO(v1.0): implement isLockedFor');
+  return state.lastPlayedDay === todayKey;
 }

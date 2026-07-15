@@ -12,12 +12,14 @@ import { LAUNCH_EPOCH, TIMEZONE } from './constants.js';
  * @returns {string} e.g. "20260715"
  */
 export function dayKey(now = new Date()) {
-  // TODO(v1.0): format `now` in TIMEZONE using Intl.DateTimeFormat with
-  // { timeZone: TIMEZONE, year:'numeric', month:'2-digit', day:'2-digit' } and
-  // concatenate to YYYYMMDD. Do NOT hand-roll DST math — let Intl handle it.
-  void now;
-  void TIMEZONE;
-  throw new Error('TODO(v1.0): implement dayKey');
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const get = (t) => parts.find((p) => p.type === t).value;
+  return `${get('year')}${get('month')}${get('day')}`;
 }
 
 /**
@@ -28,11 +30,13 @@ export function dayKey(now = new Date()) {
  * @returns {number} 32-bit unsigned integer
  */
 export function seedFromDay(dayKeyStr) {
-  // TODO(v1.0): hash the day-key string into a well-distributed uint32 (e.g.
-  // an FNV-1a or xmur3 pass). Avoid using the raw integer YYYYMMDD directly —
-  // adjacent days should not produce near-identical streams.
-  void dayKeyStr;
-  throw new Error('TODO(v1.0): implement seedFromDay');
+  // FNV-1a 32-bit hash — scatters adjacent day keys into unrelated seeds.
+  let h = 0x811c9dc5;
+  for (let i = 0; i < dayKeyStr.length; i++) {
+    h ^= dayKeyStr.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return h >>> 0;
 }
 
 /**
@@ -42,10 +46,17 @@ export function seedFromDay(dayKeyStr) {
  * @returns {number} whole number of days since LAUNCH_EPOCH (launch day = ...)
  */
 export function puzzleNumber(dayKeyStr) {
-  // TODO(v1.0): compute whole-day difference between dayKeyStr and LAUNCH_EPOCH
-  // (both interpreted as America/Detroit calendar days). Decide whether launch
-  // day is #1 or #0 and document it. Guard against pre-launch (clamp to >= 1).
-  void dayKeyStr;
-  void LAUNCH_EPOCH;
-  throw new Error('TODO(v1.0): implement puzzleNumber');
+  // Launch day is #1. Both dates are Detroit calendar days; diff the plain
+  // Y/M/D via UTC-midnight epochs so no timezone/DST math enters — a calendar
+  // day is a calendar day regardless of offset.
+  const utc = (y, m, d) => Date.UTC(y, m - 1, d);
+  const key = utc(
+    +dayKeyStr.slice(0, 4),
+    +dayKeyStr.slice(4, 6),
+    +dayKeyStr.slice(6, 8),
+  );
+  const [ly, lm, ld] = LAUNCH_EPOCH.split('-').map(Number);
+  const launch = utc(ly, lm, ld);
+  const days = Math.round((key - launch) / 86400000);
+  return Math.max(1, days + 1);
 }

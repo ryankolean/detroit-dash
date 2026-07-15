@@ -9,10 +9,24 @@
  * @returns {() => void} unbind - removes all listeners.
  */
 export function bindInput(opts) {
-  // TODO(v1.0): listen for keydown (Space, ArrowUp — preventDefault so the page
-  // doesn't scroll), pointerdown/touchstart (preventDefault to avoid synthetic
-  // click + double-fire), and mouse click. Debounce so one tap = one jump.
-  // Return an unbind() that removes every listener. Nothing but jump in v1 (§3).
-  void opts;
-  throw new Error('TODO(v1.0): implement bindInput');
+  const { target, onJump } = opts;
+
+  const onKey = (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.key === ' ' || e.key === 'ArrowUp') {
+      e.preventDefault(); // stop page scroll
+      if (!e.repeat) onJump();
+    }
+  };
+  const onPointer = (e) => {
+    e.preventDefault(); // pointerdown handles both touch + mouse; blocks synthetic click double-fire
+    onJump();
+  };
+
+  window.addEventListener('keydown', onKey);
+  target.addEventListener('pointerdown', onPointer);
+
+  return function unbind() {
+    window.removeEventListener('keydown', onKey);
+    target.removeEventListener('pointerdown', onPointer);
+  };
 }

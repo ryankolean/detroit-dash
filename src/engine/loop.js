@@ -11,12 +11,40 @@
  * @returns {{ start: () => void, stop: () => void }}
  */
 export function createLoop(opts) {
-  // TODO(v1.0): accumulator loop —
-  //   accumulate frame time, run update(dt) while accumulator >= dt, then
-  //   render(accumulator / dt). Use performance.now(); clamp huge frame gaps
-  //   (tab-switch) so the sim doesn't spiral. requestAnimationFrame to drive it.
-  //   start() begins the rAF; stop() cancels it. Keep update() pure of rAF so
-  //   the engine can also be stepped manually in tests (determinism keystone §9).
-  void opts;
-  throw new Error('TODO(v1.0): implement createLoop');
+  const dt = opts.dt ?? 1 / 60;
+  const { update, render } = opts;
+  const MAX_FRAME = 0.25; // clamp tab-switch gaps so the sim can't spiral
+
+  let rafId = null;
+  let last = 0;
+  let acc = 0;
+
+  function frame(nowMs) {
+    const now = nowMs / 1000;
+    let delta = now - last;
+    last = now;
+    if (delta > MAX_FRAME) delta = MAX_FRAME;
+    acc += delta;
+    while (acc >= dt) {
+      update(dt);
+      acc -= dt;
+    }
+    render(acc / dt); // interpolation alpha
+    rafId = requestAnimationFrame(frame);
+  }
+
+  return {
+    start() {
+      if (rafId !== null) return;
+      last = performance.now() / 1000;
+      acc = 0;
+      rafId = requestAnimationFrame(frame);
+    },
+    stop() {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+    },
+  };
 }

@@ -16,6 +16,35 @@ export const STORAGE_KEY = 'detroit-dash/v1';
 // Public play URL, used in the share card (§5).
 export const PLAY_URL = 'https://ryankolean.github.io/detroit-dash/';
 
-// TODO(v1.0): gameplay tuning — gravity, jumpVelocity, coyoteTimeMs, baseSpeed,
-// speedRampPerMeter, hitboxInset, obstacle spacing bounds, etc. (§3). Add as the
-// engine is built so world.js / player.js draw their numbers from here.
+// Fixed simulation step (§8). The loop updates in whole steps of DT seconds so
+// the sim is deterministic and headless-steppable for the keystone test (§9).
+export const DT = 1 / 60;
+
+// Logical play-field size in world units (renderer scales to the canvas).
+export const WORLD = { width: 800, height: 450, groundY: 380 };
+
+// Player sim tuning (§3). Units: world-units, seconds. Gravity is +down.
+export const PLAYER = {
+  x: 120, // fixed horizontal position; the world scrolls past
+  width: 34,
+  height: 44,
+  gravity: 2400, // world-units / s^2
+  jumpVelocity: -760, // instantaneous upward velocity on jump
+  coyoteTime: 0.08, // seconds after leaving ground a jump still fires (§3)
+  hitboxInset: 6, // forgiving hitbox: inset from the sprite on each side (§3)
+};
+
+// World scroll + obstacle spawn tuning (§3, §4). All spawn randomness is drawn
+// from the seeded rng stream — never Math.random().
+export const WORLD_TUNING = {
+  baseSpeed: 260, // world-units / s at distance 0
+  maxSpeed: 620, // speed cap
+  speedRampPerMeter: 0.9, // speed gained per meter of distance
+  gapMin: 240, // min horizontal gap to the next obstacle (world-units)
+  gapMax: 460, // max gap; narrows slightly as speed climbs
+  obstacleWidths: [26, 34, 48], // simple-shape obstacle widths (rng.pick)
+  obstacleHeights: [34, 52, 70], // heights (rng.pick)
+};
+
+// 1 meter of score == this many world-units of scroll. Score = floor(distance).
+export const METERS_PER_UNIT = 0.1;

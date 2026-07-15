@@ -12,13 +12,13 @@
  * @returns {boolean}
  */
 export function aabbIntersects(a, b) {
-  // TODO(v1.0): standard AABB overlap test —
-  //   a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
-  //   Decide edge behavior (touching = miss, per forgiving-hitbox intent §3) and
-  //   cover it in test/ (AABB hit/no-hit edge cases §9).
-  void a;
-  void b;
-  throw new Error('TODO(v1.0): implement aabbIntersects');
+  // Strict inequalities: exactly-touching edges count as a miss (forgiving §3).
+  return (
+    a.x < b.x + b.w &&
+    a.x + a.w > b.x &&
+    a.y < b.y + b.h &&
+    a.y + a.h > b.y
+  );
 }
 
 /**
@@ -28,8 +28,5 @@ export function aabbIntersects(a, b) {
  * @returns {boolean}
  */
 export function playerHitsAny(playerHitbox, obstacles) {
-  // TODO(v1.0): return obstacles.some(o => aabbIntersects(playerHitbox, o)).
-  void playerHitbox;
-  void obstacles;
-  throw new Error('TODO(v1.0): implement playerHitsAny');
+  return obstacles.some((o) => aabbIntersects(playerHitbox, o));
 }
