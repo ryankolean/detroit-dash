@@ -57,7 +57,10 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [x] Fair pacing: slow difficulty ramp; obstacle gaps grow with speed so
       reaction time stays constant (never crowded)
 
-## v3.1 — fairness + fun (next)
-- [ ] Tune power-up balance + gate cadence for a rewarding curve
-- [ ] Cosmetic-only meta-progression (skins/trails via play; no board impact)
-- [ ] Playtest difficulty across the full run; keep the ramp gentle
+## v3.1 — fairness + fun ✓
+- [x] Balance: shield capped at 2 (no invincibility hoarding — was unbounded)
+- [x] Cosmetic-only skins (Classic, Motor City, Vernors, Gold, Midnight),
+      unlocked by play; picker in the stats overlay; zero board impact
+- [x] Difficulty playtest: gentle ramp confirmed (250→540 over ~950 m), gaps
+      grow with speed so obstacles never crowd
+- [ ] (later) Cosmetic trails; more skins

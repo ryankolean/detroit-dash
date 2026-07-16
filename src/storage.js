@@ -2,11 +2,11 @@
 // Single namespaced key. All clock reads go through an injected `now` so streak
 // rules are testable headless (§6, §9). DOM touch is limited to localStorage.
 
-import { STORAGE_KEY } from './constants.js';
+import { STORAGE_KEY, SKINS } from './constants.js';
 
 const HISTORY_CAP = 60;
 
-/** A fresh zero-state save (§6). */
+/** A fresh zero-state save (§6, cosmetic fields v3.1). */
 function zeroState() {
   return {
     lastPlayedDay: null,
@@ -14,6 +14,9 @@ function zeroState() {
     maxStreak: 0,
     bestScore: 0,
     history: [],
+    totalIcons: 0, // lifetime Detroit-icon tokens collected (skin unlocks)
+    bestSegment: 0, // deepest segment reached in a run (skin unlocks)
+    skin: 'classic', // selected cosmetic skin
   };
 }
 
@@ -81,6 +84,9 @@ export function load() {
       maxStreak: Number.isFinite(s.maxStreak) ? s.maxStreak : 0,
       bestScore: Number.isFinite(s.bestScore) ? s.bestScore : 0,
       history: Array.isArray(s.history) ? s.history : [],
+      totalIcons: Number.isFinite(s.totalIcons) ? s.totalIcons : 0,
+      bestSegment: Number.isFinite(s.bestSegment) ? s.bestSegment : 0,
+      skin: typeof s.skin === 'string' ? s.skin : 'classic',
     };
   } catch {
     return zeroState();
@@ -108,12 +114,14 @@ export function save(state) {
  * Streak rule (§6): +1 when lastPlayedDay was exactly yesterday; reset to 1 on a
  * gap; unchanged same-day. Updates bestScore/maxStreak and appends to history.
  *
+ * Also accumulates lifetime cosmetic-unlock stats (v3.1): totalIcons, bestSegment.
+ *
  * @param {SaveState} prev
- * @param {{ todayKey: string, score: number }} run
+ * @param {{ todayKey: string, score: number, icons?: number, segment?: number }} run
  * @returns {SaveState}
  */
 export function recordRun(prev, run) {
-  const { todayKey, score } = run;
+  const { todayKey, score, icons = 0, segment = 0 } = run;
 
   // Same-day replay guard: never double-record today's one-shot (§6).
   if (prev.lastPlayedDay === todayKey) return prev;
@@ -126,12 +134,46 @@ export function recordRun(prev, run) {
   }
 
   return {
+    ...prev, // carry cosmetic fields (skin) forward
     lastPlayedDay: todayKey,
     currentStreak,
     maxStreak: Math.max(prev.maxStreak, currentStreak),
     bestScore: Math.max(prev.bestScore, score),
     history: [...prev.history, { day: todayKey, score }].slice(-HISTORY_CAP),
+    totalIcons: (prev.totalIcons || 0) + icons,
+    bestSegment: Math.max(prev.bestSegment || 0, segment),
   };
+}
+
+/**
+ * unlockedSkins — the set of skin ids the state has unlocked (v3.1). Pure.
+ * @param {SaveState} state
+ * @returns {Set<string>}
+ */
+export function unlockedSkins(state) {
+  const games = Array.isArray(state.history) ? state.history.length : 0;
+  const metrics = {
+    games,
+    best: state.bestScore || 0,
+    icons: state.totalIcons || 0,
+    segment: state.bestSegment || 0,
+  };
+  const out = new Set();
+  for (const skin of SKINS) {
+    if (!skin.unlock || metrics[skin.unlock.type] >= skin.unlock.value) out.add(skin.id);
+  }
+  return out;
+}
+
+/**
+ * selectSkin — pure: return state with `skin` set, only if it's unlocked.
+ * @param {SaveState} state
+ * @param {string} id
+ * @returns {SaveState}
+ */
+export function selectSkin(state, id) {
+  if (!unlockedSkins(state).has(id)) return state;
+  return { ...state, skin: id };
 }
 
 /**

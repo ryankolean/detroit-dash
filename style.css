@@ -340,6 +340,50 @@ body {
   opacity: 0.7;
 }
 
+/* Cosmetic skins picker in the stats overlay (v3.1). */
+.skins-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.skin-swatch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid rgba(240, 246, 255, 0.18);
+  border-radius: 8px;
+  background: rgba(240, 246, 255, 0.05);
+  color: var(--fg);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.skin-swatch:hover:not(:disabled) {
+  background: rgba(240, 246, 255, 0.1);
+}
+
+.skin-selected {
+  border-color: var(--accent);
+  background: rgba(255, 107, 53, 0.18);
+  font-weight: 700;
+}
+
+.skin-locked {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.skin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* Leaderboard panel inside the result card (v2.0). */
 .result-board {
   width: 100%;

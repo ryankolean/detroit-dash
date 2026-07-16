@@ -38,6 +38,11 @@ export function createRenderer(canvas) {
   const ctx = canvas.getContext('2d');
   // Scale world units -> canvas backing pixels. World is WORLD.width x .height.
   let scale = 1;
+  // Current cosmetic skin (v3.1) — player colors only, no gameplay effect.
+  let skin = { body: COLORS.player, dark: '#c44a1e' };
+  function setSkin(next) {
+    if (next && next.body && next.dark) skin = { body: next.body, dark: next.dark };
+  }
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
@@ -191,7 +196,7 @@ export function createRenderer(canvas) {
     const hipY = y + h - 14;
 
     // Legs
-    ctx.strokeStyle = '#c44a1e';
+    ctx.strokeStyle = skin.dark;
     ctx.lineWidth = 4;
     ctx.lineCap = 'round';
     ctx.beginPath();
@@ -209,18 +214,18 @@ export function createRenderer(canvas) {
     ctx.stroke();
 
     // Torso
-    ctx.fillStyle = COLORS.player;
+    ctx.fillStyle = skin.body;
     ctx.fillRect(x + 6, y + 12, w - 12, h - 26);
 
     // Trailing arm (swings opposite the legs)
-    ctx.strokeStyle = '#c44a1e';
+    ctx.strokeStyle = skin.dark;
     ctx.beginPath();
     ctx.moveTo(cx + 2, y + 18);
     ctx.lineTo(cx + 2 + (grounded ? -swing * 8 : 10), y + 27);
     ctx.stroke();
 
     // Head + visor
-    ctx.fillStyle = COLORS.player;
+    ctx.fillStyle = skin.body;
     ctx.beginPath();
     ctx.arc(cx, y + 9, 9, 0, Math.PI * 2);
     ctx.fill();
@@ -367,5 +372,5 @@ export function createRenderer(canvas) {
   }
 
   resize();
-  return { resize, clear, draw, get scale() { return scale; } };
+  return { resize, clear, draw, setSkin, get scale() { return scale; } };
 }

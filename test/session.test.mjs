@@ -74,6 +74,13 @@ test('shield absorbs one obstacle hit instead of ending the run', () => {
   assert.ok(survivedPast, 'shielded run passed the point where the bare run died');
 });
 
+test('shield is capped (no invincibility hoarding, v3.1 balance)', () => {
+  const s = createSession(SEED);
+  for (let i = 0; i < 10; i++) s.activate('shield'); // spam shield picks
+  assert.equal(s.shield, POWERUPS.maxShield);
+  assert.ok(POWERUPS.maxShield <= 3, 'cap stays small');
+});
+
 test('slow-mo reduces scroll distance over the same steps', () => {
   const normal = createSession(SEED);
   for (let i = 0; i < 60; i++) normal.step(false);

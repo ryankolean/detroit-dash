@@ -64,7 +64,7 @@ export function createSession(seed) {
     },
 
     activate(type) {
-      if (type === 'shield') s.shield += POWERUPS.shieldHits;
+      if (type === 'shield') s.shield = Math.min(POWERUPS.maxShield, s.shield + POWERUPS.shieldHits);
       else if (type === 'magnet') s.magnetUntil = world.meters + POWERUPS.magnetMeters;
       else if (type === 'slow') s.slowUntil = world.meters + POWERUPS.slowMeters;
       else if (type === 'double') s.doubleUntil = world.meters + POWERUPS.doubleMeters;

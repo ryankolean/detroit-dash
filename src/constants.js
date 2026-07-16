@@ -98,7 +98,8 @@ export const GATE = {
 // Power-up effects. Durations are in METERS of distance (so they feel the same
 // regardless of speed). All deterministic.
 export const POWERUPS = {
-  shieldHits: 1, // absorbs this many obstacle hits
+  shieldHits: 1, // hits absorbed per shield pickup
+  maxShield: 2, // cap on banked shields (v3.1 balance — no invincibility hoarding)
   magnetMeters: 70, // coin-magnet duration
   magnetRange: 300, // world-units ahead within which coins are pulled in
   slowMeters: 55, // slow-mo duration
@@ -106,6 +107,17 @@ export const POWERUPS = {
   doubleMeters: 70, // 2x coin-payout window duration
   doubleFactor: 2, // coin payout multiplier while active
 };
+
+// Cosmetic player skins (v3.1). Unlocked by play; ZERO gameplay effect, so the
+// leaderboard stays fair. `unlock` null = always available. Types: games (played),
+// best (best score), icons (lifetime Detroit-icon tokens), segment (best segment).
+export const SKINS = [
+  { id: 'classic', name: 'Classic', body: '#ff6b35', dark: '#c44a1e', unlock: null },
+  { id: 'steel', name: 'Motor City', body: '#7fa8d0', dark: '#3f6b93', unlock: { type: 'games', value: 3 } },
+  { id: 'vernor', name: 'Vernors', body: '#6fbf5b', dark: '#3f8a33', unlock: { type: 'best', value: 1000 } },
+  { id: 'gold', name: 'Gold', body: '#ffcf40', dark: '#c79a1e', unlock: { type: 'icons', value: 10 } },
+  { id: 'midnight', name: 'Midnight', body: '#9b6cff', dark: '#5f3fb0', unlock: { type: 'segment', value: 5 } },
+];
 
 // Parallax Detroit skyline (v1.2, pixel-art rework v1.3). Cosmetic only —
 // generated from its OWN seed, never the gameplay stream (§4). A curated Detroit

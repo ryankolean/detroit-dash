@@ -13,12 +13,12 @@ import { bindInput } from './engine/input.js';
 import { createSkyline } from './engine/skyline.js';
 import { createParticles } from './engine/particles.js';
 import { createAudio } from './engine/audio.js';
-import { load, save, recordRun, isLockedFor, computeStats } from './storage.js';
+import { load, save, recordRun, isLockedFor, computeStats, unlockedSkins, selectSkin } from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
 import { fetchBoard, submitScore } from './net.js';
 import { sanitizeName } from './leaderboard.js';
-import { TIMEZONE, BACKEND_URL, CLIENT_KEY } from './constants.js';
+import { TIMEZONE, BACKEND_URL, CLIENT_KEY, SKINS } from './constants.js';
 
 // --- DOM handles -----------------------------------------------------------
 const canvas = document.getElementById('stage');
@@ -44,7 +44,7 @@ const now = new Date();
 const today = dev.day ?? dayKey(now);
 const puzzleNo = puzzleNumber(today);
 const seed = dev.seed ?? seedFromDay(today);
-const state = load();
+let state = load();
 
 hudPuzzle.textContent = `Detroit Dash #${puzzleNo}${dev.enabled ? ' · DEV' : ''}`;
 hudStreak.textContent = `🔥 ${state.currentStreak}`;
@@ -57,6 +57,13 @@ window.addEventListener('resize', () => {
 
 // Cosmetic parallax skyline — built once from its own seed, shared across runs.
 const skyline = createSkyline();
+
+// Apply the selected cosmetic skin (v3.1) — player colors only, no sim effect.
+function applySkin() {
+  const skin = SKINS.find((sk) => sk.id === state.skin) || SKINS[0];
+  renderer.setSkin(skin);
+}
+applySkin();
 
 // Day vs night skyline variant, by current Detroit local time (v1.3).
 const theme = isDaytime(now) ? 'day' : 'night';
@@ -194,6 +201,30 @@ function formatDay(key) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function skinUnlockHint(skin) {
+  const u = skin.unlock;
+  if (!u) return '';
+  if (u.type === 'games') return `Play ${u.value} games`;
+  if (u.type === 'best') return `Best ${u.value.toLocaleString('en-US')} m`;
+  if (u.type === 'icons') return `Collect ${u.value} icons`;
+  if (u.type === 'segment') return `Reach segment ${u.value}`;
+  return 'Locked';
+}
+
+function renderSkins() {
+  const unlocked = unlockedSkins(state);
+  return SKINS.map((sk) => {
+    const isUnlocked = unlocked.has(sk.id);
+    const isSelected = state.skin === sk.id;
+    const cls = `skin-swatch${isSelected ? ' skin-selected' : ''}${isUnlocked ? '' : ' skin-locked'}`;
+    const label = isUnlocked ? escapeHtml(sk.name) : `🔒 ${escapeHtml(skinUnlockHint(sk))}`;
+    return `<button type="button" class="${cls}" data-skin="${sk.id}"${isUnlocked ? '' : ' disabled'}>
+      <span class="skin-dot" style="background:${sk.body}"></span>
+      <span class="skin-name">${label}</span>
+    </button>`;
+  }).join('');
+}
+
 function openStats() {
   const s = computeStats(load());
   const rows = s.recent.length
@@ -217,12 +248,23 @@ function openStats() {
         <div><dt>Streak</dt><dd>🔥 ${s.currentStreak}</dd></div>
         <div><dt>Max streak</dt><dd>${s.maxStreak}</dd></div>
       </dl>
+      <h3>Skins</h3>
+      <div class="skins-grid" id="skins-grid">${renderSkins()}</div>
       <h3>Recent runs</h3>
       <ol class="stats-list">${rows}</ol>
     </div>`;
   statsLastFocus = document.activeElement;
   statsEl.hidden = false;
   document.getElementById('stats-close').addEventListener('click', closeStats);
+  document.getElementById('skins-grid').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-skin]');
+    if (!btn) return;
+    state = selectSkin(state, btn.dataset.skin);
+    save(state);
+    applySkin();
+    drawBackdrop();
+    document.getElementById('skins-grid').innerHTML = renderSkins();
+  });
   document.getElementById('stats-close').focus();
 }
 
@@ -398,8 +440,14 @@ function startRun() {
       return;
     }
 
-    const next = recordRun(state, { todayKey: today, score });
+    const next = recordRun(state, {
+      todayKey: today,
+      score,
+      icons: session.scorer.iconsCollected,
+      segment: session.segment,
+    });
     save(next);
+    state = next; // keep module state current (cosmetic unlocks + skin)
     hudStreak.textContent = `🔥 ${next.currentStreak}`;
     showResult({
       score,
