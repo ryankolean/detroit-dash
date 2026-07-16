@@ -66,3 +66,19 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [x] Cosmetic trails (Spark, Ribbon, Ember) — colored by skin, unlocked by play,
       picker in the stats overlay
 - [ ] (later) More skins + trail styles
+
+## v3.2 — extra plays (ad / social share)
+- [ ] Earn additional plays by watching a rewarded ad or performing a social share
+- [ ] **Ranked integrity is non-negotiable:** only the first (one-shot) run of the
+      day submits to the daily leaderboard. Extra plays are **unranked practice** —
+      same daily course, but they never post a score. Preserves "one shot, same
+      for everyone" + the replay-verified board.
+- [ ] Practice runs surface the score + how it *would* rank, clearly labeled
+      "practice — not submitted", with a fresh best-practice-of-day tracker.
+- [ ] Ad path: a rewarded-video provider (e.g. an AdSense/AdMob-style SDK or a
+      lightweight house-ad), gated behind a config flag; degrade gracefully to
+      share-only if no ad is configured (keeps the site static/backendless).
+- [ ] Share path: grant one extra play after the spoiler-free share card is
+      copied/shared; cap extra plays/day to avoid a grind loop.
+- [ ] Cap total plays/day and persist the counter in localStorage; the one-shot
+      lock still governs the *ranked* run only.
