@@ -48,5 +48,16 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [x] Ships disabled (`BACKEND_URL=''`); set it after `wrangler deploy` to enable
       (see `worker/README.md`)
 
-## v3.0
-- [ ] Daily-seed roguelite variant (Option C; calendar reminder 2026-07-20)
+## v3.0 — daily-seed roguelite ✓
+- [x] Deterministic roguelite: escalating segments + choice gates + power-ups,
+      all input-driven and replay-safe (leaderboard intact)
+- [x] Power-ups: shield, coin-magnet, slow-mo, 2x coin window
+- [x] One-button choice gates (auto-cycle, tap to pick) every 300 m
+- [x] Shared `engine/session.js` — live game + Worker replay run identical sim
+- [x] Fair pacing: slow difficulty ramp; obstacle gaps grow with speed so
+      reaction time stays constant (never crowded)
+
+## v3.1 — fairness + fun (next)
+- [ ] Tune power-up balance + gate cadence for a rewarding curve
+- [ ] Cosmetic-only meta-progression (skins/trails via play; no board impact)
+- [ ] Playtest difficulty across the full run; keep the ramp gentle

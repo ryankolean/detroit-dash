@@ -5,14 +5,11 @@
 // engine modules, not here.
 
 import { dayKey, seedFromDay, puzzleNumber, isDaytime } from './daily.js';
-import { createRng } from './engine/rng.js';
 import { createLoop } from './engine/loop.js';
-import { createWorld } from './engine/world.js';
 import { createPlayer } from './engine/player.js';
+import { createSession } from './engine/session.js';
 import { createRenderer } from './engine/renderer.js';
 import { bindInput } from './engine/input.js';
-import { playerHitsAny } from './engine/collision.js';
-import { createScorer, resolveCoins } from './engine/scoring.js';
 import { createSkyline } from './engine/skyline.js';
 import { createParticles } from './engine/particles.js';
 import { createAudio } from './engine/audio.js';
@@ -324,51 +321,46 @@ async function renderBoardOnly(day) {
 
 // --- Play a run ------------------------------------------------------------
 function startRun() {
-  const rng = createRng(seed);
-  const world = createWorld({ rng });
-  const player = createPlayer();
-  const scorer = createScorer();
+  // One session drives everything (world, player, scorer, gates, power-ups) —
+  // the SAME code the Worker replays (§v3.0). See engine/session.js.
+  const session = createSession(seed);
+  const { player } = session;
   const particles = createParticles();
-  const jumpSteps = []; // recorded input timeline for replay-verified submit (v2.0)
-  let step = 0;
-  let pendingJump = false;
+  const tapSteps = []; // recorded input timeline for replay-verified submit (v2.0)
+  let pendingTap = false;
   let over = false;
 
-  // Input just flags a jump; it's APPLIED at the next step boundary (below) so the
-  // live run matches replayScore(dayKey, jumpSteps) exactly — jump before update.
+  // Input flags a tap; it's APPLIED at the next step boundary so the live run
+  // matches replayScore(dayKey, tapSteps) exactly. A tap is a jump, or a gate
+  // pick when a gate is open — the session decides.
   const onJump = () => {
-    pendingJump = true;
+    pendingTap = true;
   };
   const unbindInput = bindInput({ target: canvas, onJump });
 
   const loop = createLoop({
-    update(dt) {
-      if (pendingJump) {
-        pendingJump = false;
-        if (player.grounded) {
-          if (!reduceMotion) particles.jump(player.x + player.width / 2, player.y + player.height);
-          audio.jump();
-        }
-        jumpSteps.push(step);
-        player.jump();
+    update() {
+      const tapped = pendingTap;
+      pendingTap = false;
+      const wasGrounded = player.grounded;
+      if (tapped) tapSteps.push(session.stepCount);
+      const r = session.step(tapped);
+      if (r.jumped && wasGrounded) {
+        if (!reduceMotion) particles.jump(player.x + player.width / 2, player.y + player.height);
+        audio.jump();
       }
-      world.update(dt);
-      player.update(dt);
-      const got = resolveCoins(world.coins, player.box(), scorer); // collect / break combo
-      for (const c of got) {
-        if (!reduceMotion) particles.coin(c.x, c.y); // sparkle FX
+      if (r.picked) audio.coin(); // power-up chosen
+      for (const c of r.collected) {
+        if (!reduceMotion) particles.coin(c.x, c.y);
         audio.coin();
       }
-      particles.update(dt);
-      if (playerHitsAny(player.hitbox(), world.obstacles)) {
-        endRun();
-      }
-      step += 1;
+      particles.update(1 / 60);
+      if (!r.alive) endRun();
     },
     render() {
-      renderer.draw(world, player, skyline, particles, theme);
-      const total = scorer.total(Math.floor(world.meters));
-      const combo = scorer.multiplier > 1 ? ` ×${scorer.multiplier}` : '';
+      renderer.draw(session.world, player, skyline, particles, theme, session);
+      const total = session.score();
+      const combo = session.scorer.multiplier > 1 ? ` ×${session.scorer.multiplier}` : '';
       hudScore.textContent = `${total.toLocaleString('en-US')} m${combo}`;
     },
   });
@@ -379,17 +371,17 @@ function startRun() {
     // Death burst at the player, drawn once before the loop stops.
     if (!reduceMotion) particles.death(player.x + player.width / 2, player.y + player.height / 2);
     audio.death();
-    renderer.draw(world, player, skyline, particles, theme);
+    renderer.draw(session.world, player, skyline, particles, theme, session);
     loop.stop();
     unbindInput();
 
-    const distance = Math.floor(world.meters);
-    const score = scorer.total(distance);
+    const distance = Math.floor(session.world.meters);
+    const score = session.score();
     const breakdown = {
       distance,
-      coins: scorer.coinsCollected,
-      icons: scorer.iconsCollected,
-      maxMult: scorer.maxMultiplier,
+      coins: session.scorer.coinsCollected,
+      icons: session.scorer.iconsCollected,
+      maxMult: session.scorer.maxMultiplier,
     };
     const isNewBest = score > state.bestScore && score > 0;
 
@@ -417,7 +409,7 @@ function startRun() {
       isNewBest,
       breakdown,
     });
-    submitAndRenderBoard(today, jumpSteps); // replay-verified leaderboard (v2.0)
+    submitAndRenderBoard(today, tapSteps); // replay-verified leaderboard (v2.0)
   }
 
   loop.start();

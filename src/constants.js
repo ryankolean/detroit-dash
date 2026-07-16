@@ -47,12 +47,17 @@ export const PLAYER = {
 
 // World scroll + obstacle spawn tuning (§3, §4). All spawn randomness is drawn
 // from the seeded rng stream — never Math.random().
+//
+// Fairness (v3.0): difficulty ramps SLOWLY, and the gap to the next obstacle
+// GROWS with speed so reaction time stays roughly constant — obstacles never
+// crowd. gap = max(gapFloor, speed * reactionTime) + rng(0, gapVariety).
 export const WORLD_TUNING = {
-  baseSpeed: 260, // world-units / s at distance 0
-  maxSpeed: 620, // speed cap
-  speedRampPerMeter: 0.9, // speed gained per meter of distance
-  gapMin: 240, // min horizontal gap to the next obstacle (world-units)
-  gapMax: 460, // max gap; narrows slightly as speed climbs
+  baseSpeed: 250, // world-units / s at distance 0
+  maxSpeed: 540, // speed cap (lower than v1 for fairness)
+  speedRampPerMeter: 0.3, // slow ramp: reaches the cap around ~950 m
+  reactionTime: 0.85, // min seconds of runway between obstacles (fairness)
+  gapFloor: 240, // absolute minimum gap (world-units), regardless of speed
+  gapVariety: 130, // rng spread added on top of the reaction-time gap
   obstacleWidths: [26, 34, 48], // simple-shape obstacle widths (rng.pick)
   obstacleHeights: [34, 52, 70], // heights (rng.pick)
 };
@@ -74,6 +79,32 @@ export const COIN = {
   iconChance: 0.35, // chance a cluster's lead coin is a Detroit-icon bonus (v1.4)
   iconBonus: 200, // base points for an icon token (before the combo multiplier)
   iconTypes: 3, // Joe Louis fist, Spirit of Detroit, Guardian Building
+};
+
+// Roguelite: choice gates + power-ups (v3.0). Deterministic and input-driven —
+// gate menus are drawn from the seed; the player picks with the same one-button
+// tap. All effects are pure sim (no Math.random).
+export const POWERUP_TYPES = ['shield', 'magnet', 'slow', 'double'];
+
+// A choice gate opens each time the run crosses another segment.
+export const SEGMENT_METERS = 300; // generous runway before the first gate + between gates
+
+export const GATE = {
+  optionCount: 3, // options offered per gate (distinct, drawn from the seed)
+  cyclePeriodSteps: 42, // ~0.7 s each option is highlighted at 60 fps
+  timeoutSteps: 420, // ~7 s open, then auto-pick the highlighted option
+};
+
+// Power-up effects. Durations are in METERS of distance (so they feel the same
+// regardless of speed). All deterministic.
+export const POWERUPS = {
+  shieldHits: 1, // absorbs this many obstacle hits
+  magnetMeters: 70, // coin-magnet duration
+  magnetRange: 300, // world-units ahead within which coins are pulled in
+  slowMeters: 55, // slow-mo duration
+  slowFactor: 0.6, // scroll speed multiplier while slow-mo is active
+  doubleMeters: 70, // 2x coin-payout window duration
+  doubleFactor: 2, // coin payout multiplier while active
 };
 
 // Parallax Detroit skyline (v1.2, pixel-art rework v1.3). Cosmetic only —

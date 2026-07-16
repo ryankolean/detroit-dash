@@ -266,7 +266,78 @@ export function createRenderer(canvas) {
     }
   }
 
-  function draw(world, player, skyline, particles, themeName) {
+  // Active power-up visuals (v3.0): shield ring, magnet radius, slow-mo tint.
+  const PU_LABEL = { shield: 'SHIELD', magnet: 'MAGNET', slow: 'SLOW-MO', double: '2×' };
+
+  function drawPowerups(player, session) {
+    if (!session) return;
+    const cx = player.x + player.width / 2;
+    const cy = player.y + player.height / 2;
+    if (session.slowActive && session.slowActive()) {
+      ctx.fillStyle = 'rgba(90,150,255,0.12)'; // slow-mo tint
+      ctx.fillRect(0, 0, WORLD.width, WORLD.height);
+    }
+    if (session.magnetActive && session.magnetActive()) {
+      ctx.strokeStyle = 'rgba(255,209,102,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 46, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (session.shield > 0) {
+      ctx.strokeStyle = '#5fd0e0';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx, cy, player.width * 0.9, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (session.doubleActive && session.doubleActive()) {
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold 16px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('2×', cx, player.y - 8);
+      ctx.textAlign = 'start';
+    }
+  }
+
+  // Choice gate overlay (v3.0): three power-up options, the highlighted one lit.
+  // World is frozen while it's open; the same tap that jumps here picks.
+  function drawGate(session) {
+    if (!session || !session.gate) return;
+    const g = session.gate;
+    ctx.fillStyle = 'rgba(11,29,51,0.6)';
+    ctx.fillRect(0, 0, WORLD.width, WORLD.height);
+    ctx.fillStyle = '#f0f6ff';
+    ctx.font = 'bold 20px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Pick a power-up', WORLD.width / 2, 120);
+
+    const n = g.options.length;
+    const boxW = 150;
+    const boxH = 90;
+    const gap = 24;
+    const totalW = n * boxW + (n - 1) * gap;
+    let x0 = (WORLD.width - totalW) / 2;
+    const y0 = 160;
+    g.options.forEach((opt, i) => {
+      const x = x0 + i * (boxW + gap);
+      const on = i === g.highlight;
+      ctx.fillStyle = on ? '#ff6b35' : '#12325a';
+      ctx.fillRect(x, y0, boxW, boxH);
+      ctx.strokeStyle = on ? '#ffd166' : 'rgba(240,246,255,0.3)';
+      ctx.lineWidth = on ? 3 : 1;
+      ctx.strokeRect(x + 1, y0 + 1, boxW - 2, boxH - 2);
+      ctx.fillStyle = on ? '#0b1d33' : '#f0f6ff';
+      ctx.font = 'bold 18px system-ui, sans-serif';
+      ctx.fillText(PU_LABEL[opt] || opt, x + boxW / 2, y0 + boxH / 2 + 6);
+    });
+    ctx.fillStyle = 'rgba(240,246,255,0.85)';
+    ctx.font = '14px system-ui, sans-serif';
+    ctx.fillText('Tap to lock in the highlighted option', WORLD.width / 2, y0 + boxH + 34);
+    ctx.textAlign = 'start';
+  }
+
+  function draw(world, player, skyline, particles, themeName, session) {
     const t = THEMES[themeName] || THEMES.night;
     clear(t);
     drawSkyline(skyline, world.distance || 0, t);
@@ -290,7 +361,9 @@ export function createRenderer(canvas) {
       ctx.fill();
     }
     drawPlayer(player, world.distance || 0);
+    drawPowerups(player, session);
     drawParticles(particles);
+    drawGate(session);
   }
 
   resize();

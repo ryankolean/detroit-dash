@@ -20,12 +20,13 @@ export function createScorer() {
     iconsCollected: 0,
 
     // `coin` may carry an `icon` (a Detroit-icon bonus token, v1.4) worth more.
-    collect(coin) {
+    // `payoutMult` applies the 2x power-up window (v3.0); defaults to 1x.
+    collect(coin, payoutMult = 1) {
       s.comboCount += 1;
       s.multiplier = Math.min(COIN.maxMult, Math.ceil(s.comboCount / COIN.comboStep));
       if (s.multiplier > s.maxMultiplier) s.maxMultiplier = s.multiplier;
       const isIcon = coin && coin.icon != null;
-      s.coinScore += (isIcon ? COIN.iconBonus : COIN.base) * s.multiplier;
+      s.coinScore += (isIcon ? COIN.iconBonus : COIN.base) * s.multiplier * payoutMult;
       s.coinsCollected += 1;
       if (isIcon) s.iconsCollected += 1;
     },

@@ -22,7 +22,7 @@ export function createWorld(opts) {
     speed: T.baseSpeed,
     obstacles: [], // active { x, y, w, h }, x in screen space
     coins: [], // active collectibles { x, y, w, h } (v1.1)
-    distToNextSpawn: T.gapMin, // units of scroll until the next spawn
+    distToNextSpawn: T.gapFloor, // units of scroll until the next spawn
 
     spawn() {
       const width = rng.pick(T.obstacleWidths);
@@ -33,10 +33,10 @@ export function createWorld(opts) {
         w: width,
         h: height,
       });
-      // Gap to the next one narrows a little as speed climbs, floored at gapMin.
-      const tighten = (w.speed - T.baseSpeed) / (T.maxSpeed - T.baseSpeed); // 0..1
-      const gapMax = T.gapMax - (T.gapMax - T.gapMin) * 0.5 * tighten;
-      w.distToNextSpawn = rng.range(T.gapMin, gapMax);
+      // Fair gap (v3.0): grows with speed so reaction time stays ~constant, plus
+      // seeded variety. Obstacles never crowd, even at the speed cap.
+      const reactionGap = Math.max(T.gapFloor, w.speed * T.reactionTime);
+      w.distToNextSpawn = reactionGap + rng.range(0, T.gapVariety);
 
       // Coin cluster trailing the obstacle, all drawn from the seeded stream so
       // the collectible layout is identical for everyone (§4).
@@ -63,10 +63,10 @@ export function createWorld(opts) {
       }
     },
 
-    update(dt) {
-      // Speed ramps with distance, capped.
+    update(dt, speedMult = 1) {
+      // Speed ramps with distance, capped. speedMult applies power-ups (slow-mo).
       w.speed = Math.min(T.maxSpeed, T.baseSpeed + T.speedRampPerMeter * w.meters);
-      const step = w.speed * dt;
+      const step = w.speed * speedMult * dt;
       w.distance += step;
       w.meters = w.distance * METERS_PER_UNIT;
 
