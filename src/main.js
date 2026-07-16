@@ -13,12 +13,15 @@ import { bindInput } from './engine/input.js';
 import { createSkyline } from './engine/skyline.js';
 import { createParticles } from './engine/particles.js';
 import { createAudio } from './engine/audio.js';
-import { load, save, recordRun, isLockedFor, computeStats, unlockedSkins, selectSkin } from './storage.js';
+import {
+  load, save, recordRun, isLockedFor, computeStats,
+  unlockedSkins, selectSkin, unlockedTrails, selectTrail,
+} from './storage.js';
 import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
 import { fetchBoard, submitScore } from './net.js';
 import { sanitizeName } from './leaderboard.js';
-import { TIMEZONE, BACKEND_URL, CLIENT_KEY, SKINS } from './constants.js';
+import { TIMEZONE, BACKEND_URL, CLIENT_KEY, SKINS, TRAILS } from './constants.js';
 
 // --- DOM handles -----------------------------------------------------------
 const canvas = document.getElementById('stage');
@@ -225,6 +228,22 @@ function renderSkins() {
   }).join('');
 }
 
+function renderTrails() {
+  const unlocked = unlockedTrails(state);
+  return TRAILS.map((tr) => {
+    const isUnlocked = unlocked.has(tr.id);
+    const isSelected = state.trail === tr.id;
+    const cls = `skin-swatch${isSelected ? ' skin-selected' : ''}${isUnlocked ? '' : ' skin-locked'}`;
+    const label = isUnlocked ? escapeHtml(tr.name) : `🔒 ${escapeHtml(skinUnlockHint(tr))}`;
+    const dot = tr.swatch === 'transparent'
+      ? '<span class="skin-dot skin-dot-none"></span>'
+      : `<span class="skin-dot" style="background:${tr.swatch}"></span>`;
+    return `<button type="button" class="${cls}" data-trail="${tr.id}"${isUnlocked ? '' : ' disabled'}>
+      ${dot}<span class="skin-name">${label}</span>
+    </button>`;
+  }).join('');
+}
+
 function openStats() {
   const s = computeStats(load());
   const rows = s.recent.length
@@ -250,6 +269,8 @@ function openStats() {
       </dl>
       <h3>Skins</h3>
       <div class="skins-grid" id="skins-grid">${renderSkins()}</div>
+      <h3>Trails</h3>
+      <div class="skins-grid" id="trails-grid">${renderTrails()}</div>
       <h3>Recent runs</h3>
       <ol class="stats-list">${rows}</ol>
     </div>`;
@@ -264,6 +285,13 @@ function openStats() {
     applySkin();
     drawBackdrop();
     document.getElementById('skins-grid').innerHTML = renderSkins();
+  });
+  document.getElementById('trails-grid').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-trail]');
+    if (!btn) return;
+    state = selectTrail(state, btn.dataset.trail);
+    save(state);
+    document.getElementById('trails-grid').innerHTML = renderTrails();
   });
   document.getElementById('stats-close').focus();
 }
@@ -372,6 +400,14 @@ function startRun() {
   let pendingTap = false;
   let over = false;
 
+  // Cosmetic trail config for this run (v3.1) — color from the trail, or the skin.
+  const trailDef = TRAILS.find((tr) => tr.id === state.trail);
+  const skinDef = SKINS.find((sk) => sk.id === state.skin) || SKINS[0];
+  const trailCfg =
+    trailDef && trailDef.id !== 'none'
+      ? { ...trailDef, color: trailDef.color || skinDef.body }
+      : null;
+
   // Input flags a tap; it's APPLIED at the next step boundary so the live run
   // matches replayScore(dayKey, tapSteps) exactly. A tap is a jump, or a gate
   // pick when a gate is open — the session decides.
@@ -395,6 +431,10 @@ function startRun() {
       for (const c of r.collected) {
         if (!reduceMotion) particles.coin(c.x, c.y);
         audio.coin();
+      }
+      // Cosmetic trail streak behind the runner.
+      if (trailCfg && !reduceMotion && r.alive) {
+        particles.trail(player.x + 4, player.y + player.height * 0.55, trailCfg);
       }
       particles.update(1 / 60);
       if (!r.alive) endRun();

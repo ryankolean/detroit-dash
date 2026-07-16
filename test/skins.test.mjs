@@ -2,7 +2,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { unlockedSkins, selectSkin, recordRun } from '../src/storage.js';
+import { unlockedSkins, selectSkin, unlockedTrails, selectTrail, recordRun } from '../src/storage.js';
 
 function stateWith(overrides = {}) {
   return {
@@ -14,6 +14,7 @@ function stateWith(overrides = {}) {
     totalIcons: 0,
     bestSegment: 0,
     skin: 'classic',
+    trail: 'none',
     ...overrides,
   };
 }
@@ -64,4 +65,24 @@ test('recordRun carries the selected skin forward', () => {
   const s0 = stateWith({ skin: 'steel', history: [1, 2, 3] });
   const s1 = recordRun(s0, { todayKey: '20260715', score: 500 });
   assert.equal(s1.skin, 'steel');
+});
+
+test('trails: none always unlocked; others gate by metric', () => {
+  assert.ok(unlockedTrails(stateWith()).has('none'));
+  assert.ok(!unlockedTrails(stateWith()).has('spark'));
+  assert.ok(unlockedTrails(stateWith({ history: [1, 2, 3, 4, 5] })).has('spark')); // 5 games
+  assert.ok(unlockedTrails(stateWith({ bestScore: 2000 })).has('ribbon'));
+  assert.ok(unlockedTrails(stateWith({ bestSegment: 8 })).has('ember'));
+});
+
+test('selectTrail only applies an unlocked trail', () => {
+  assert.equal(selectTrail(stateWith(), 'ember').trail, 'none'); // locked -> unchanged
+  assert.equal(selectTrail(stateWith({ bestSegment: 8 }), 'ember').trail, 'ember');
+  assert.equal(selectTrail(stateWith(), 'none').trail, 'none'); // none always ok
+});
+
+test('recordRun carries the selected trail forward', () => {
+  const s0 = stateWith({ trail: 'spark', history: [1, 2, 3, 4, 5] });
+  const s1 = recordRun(s0, { todayKey: '20260715', score: 500 });
+  assert.equal(s1.trail, 'spark');
 });

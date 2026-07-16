@@ -57,6 +57,22 @@ export function createParticles() {
       emit(x, y, PARTICLES.deathBurst, { from: 0, to: Math.PI * 2 });
     },
 
+    // Cosmetic trail streak behind the runner (v3.1). Drifts left so it lags.
+    trail(x, y, cfg) {
+      for (let i = 0; i < cfg.count; i++) {
+        list.push({
+          x,
+          y,
+          vx: -(cfg.speed * (0.5 + Math.random() * 0.8)),
+          vy: (Math.random() - 0.5) * cfg.speed * 0.5,
+          life: cfg.life,
+          maxLife: cfg.life,
+          size: cfg.size,
+          color: cfg.color,
+        });
+      }
+    },
+
     clear() {
       list.length = 0;
     },

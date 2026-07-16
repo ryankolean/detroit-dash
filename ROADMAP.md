@@ -63,4 +63,6 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
       unlocked by play; picker in the stats overlay; zero board impact
 - [x] Difficulty playtest: gentle ramp confirmed (250→540 over ~950 m), gaps
       grow with speed so obstacles never crowd
-- [ ] (later) Cosmetic trails; more skins
+- [x] Cosmetic trails (Spark, Ribbon, Ember) — colored by skin, unlocked by play,
+      picker in the stats overlay
+- [ ] (later) More skins + trail styles

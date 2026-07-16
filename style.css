@@ -384,6 +384,11 @@ body {
   flex-shrink: 0;
 }
 
+.skin-dot-none {
+  border: 1px dashed rgba(240, 246, 255, 0.5);
+  background: transparent;
+}
+
 /* Leaderboard panel inside the result card (v2.0). */
 .result-board {
   width: 100%;

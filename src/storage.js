@@ -2,7 +2,7 @@
 // Single namespaced key. All clock reads go through an injected `now` so streak
 // rules are testable headless (§6, §9). DOM touch is limited to localStorage.
 
-import { STORAGE_KEY, SKINS } from './constants.js';
+import { STORAGE_KEY, SKINS, TRAILS } from './constants.js';
 
 const HISTORY_CAP = 60;
 
@@ -17,6 +17,7 @@ function zeroState() {
     totalIcons: 0, // lifetime Detroit-icon tokens collected (skin unlocks)
     bestSegment: 0, // deepest segment reached in a run (skin unlocks)
     skin: 'classic', // selected cosmetic skin
+    trail: 'none', // selected cosmetic trail
   };
 }
 
@@ -87,6 +88,7 @@ export function load() {
       totalIcons: Number.isFinite(s.totalIcons) ? s.totalIcons : 0,
       bestSegment: Number.isFinite(s.bestSegment) ? s.bestSegment : 0,
       skin: typeof s.skin === 'string' ? s.skin : 'classic',
+      trail: typeof s.trail === 'string' ? s.trail : 'none',
     };
   } catch {
     return zeroState();
@@ -145,35 +147,45 @@ export function recordRun(prev, run) {
   };
 }
 
-/**
- * unlockedSkins — the set of skin ids the state has unlocked (v3.1). Pure.
- * @param {SaveState} state
- * @returns {Set<string>}
- */
-export function unlockedSkins(state) {
-  const games = Array.isArray(state.history) ? state.history.length : 0;
-  const metrics = {
-    games,
+// Lifetime metrics that gate cosmetic unlocks (v3.1).
+function unlockMetrics(state) {
+  return {
+    games: Array.isArray(state.history) ? state.history.length : 0,
     best: state.bestScore || 0,
     icons: state.totalIcons || 0,
     segment: state.bestSegment || 0,
   };
+}
+
+function unlockedFrom(state, items) {
+  const m = unlockMetrics(state);
   const out = new Set();
-  for (const skin of SKINS) {
-    if (!skin.unlock || metrics[skin.unlock.type] >= skin.unlock.value) out.add(skin.id);
+  for (const it of items) {
+    if (!it.unlock || m[it.unlock.type] >= it.unlock.value) out.add(it.id);
   }
   return out;
 }
 
-/**
- * selectSkin — pure: return state with `skin` set, only if it's unlocked.
- * @param {SaveState} state
- * @param {string} id
- * @returns {SaveState}
- */
+/** unlockedSkins — set of unlocked skin ids (v3.1). Pure. */
+export function unlockedSkins(state) {
+  return unlockedFrom(state, SKINS);
+}
+
+/** unlockedTrails — set of unlocked trail ids (v3.1). Pure. */
+export function unlockedTrails(state) {
+  return unlockedFrom(state, TRAILS);
+}
+
+/** selectSkin — pure: set `skin` only if unlocked. */
 export function selectSkin(state, id) {
   if (!unlockedSkins(state).has(id)) return state;
   return { ...state, skin: id };
+}
+
+/** selectTrail — pure: set `trail` only if unlocked. */
+export function selectTrail(state, id) {
+  if (!unlockedTrails(state).has(id)) return state;
+  return { ...state, trail: id };
 }
 
 /**

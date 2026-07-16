@@ -119,6 +119,15 @@ export const SKINS = [
   { id: 'midnight', name: 'Midnight', body: '#9b6cff', dark: '#5f3fb0', unlock: { type: 'segment', value: 5 } },
 ];
 
+// Cosmetic trails (v3.1). A fading streak behind the runner. Cosmetic only.
+// `color: null` = use the current skin color. `swatch` colors the picker dot.
+export const TRAILS = [
+  { id: 'none', name: 'None', swatch: 'transparent', unlock: null, color: null, size: 0, life: 0, count: 0, speed: 0 },
+  { id: 'spark', name: 'Spark', swatch: '#f0f6ff', unlock: { type: 'games', value: 5 }, color: null, size: 3, life: 0.35, count: 1, speed: 40 },
+  { id: 'ribbon', name: 'Ribbon', swatch: '#5fd0e0', unlock: { type: 'best', value: 2000 }, color: null, size: 5, life: 0.5, count: 1, speed: 20 },
+  { id: 'ember', name: 'Ember', swatch: '#ff8a3c', unlock: { type: 'segment', value: 8 }, color: '#ff8a3c', size: 4, life: 0.45, count: 2, speed: 60 },
+];
+
 // Parallax Detroit skyline (v1.2, pixel-art rework v1.3). Cosmetic only —
 // generated from its OWN seed, never the gameplay stream (§4). A curated Detroit
 // silhouette (Renaissance Center, gothic spires, brick riverfront towers) plus
