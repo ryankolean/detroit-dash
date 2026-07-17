@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSession } from '../src/engine/session.js';
 import { seedFromDay } from '../src/daily.js';
-import { SEGMENT, POWERUPS } from '../src/constants.js';
+import { SEGMENT, POWERUPS, WORLD_TUNING } from '../src/constants.js';
 
 const SEED = seedFromDay('20260715');
 
@@ -74,11 +74,15 @@ test('shield absorbs one obstacle hit instead of ending the run', () => {
   assert.ok(survivedPast, 'shielded run passed the point where the bare run died');
 });
 
-test('shield is capped (no invincibility hoarding, v3.1 balance)', () => {
+test('shields stack up to the cap (v3.5)', () => {
   const s = createSession(SEED);
-  for (let i = 0; i < 10; i++) s.activate('shield'); // spam shield picks
-  assert.equal(s.shield, POWERUPS.maxShield);
-  assert.ok(POWERUPS.maxShield <= 3, 'cap stays small');
+  assert.ok(POWERUPS.maxShield >= 3, 'shields stack meaningfully');
+  s.activate('shield');
+  assert.equal(s.shield, 1);
+  s.activate('shield');
+  assert.equal(s.shield, 2); // stacks
+  for (let i = 0; i < 10; i++) s.activate('shield');
+  assert.equal(s.shield, POWERUPS.maxShield); // but not past the cap
 });
 
 test('an uncollected coin stays on screen (missed once) until it scrolls off', () => {
@@ -121,6 +125,15 @@ test('gate options are drawn deterministically from the seed', () => {
   const b = autoplay(SEED, 800);
   // First gate's picked power-up is stable across runs.
   assert.equal(a.picks[0], b.picks[0]);
+});
+
+test('difficulty keeps rising: reaction window decays with distance (no plateau)', () => {
+  const T = WORLD_TUNING;
+  const react = (m) => Math.max(T.reactionFloor, T.reactionTime - T.reactionDrop * m);
+  assert.ok(T.reactionDrop > 0, 'reaction window decays over distance');
+  assert.ok(T.reactionFloor < T.reactionTime, 'floor is below the starting window');
+  assert.ok(react(1000) < react(0), 'tighter by 1000 m');
+  assert.ok(react(2000) < react(1000), 'and keeps tightening'); // no early plateau
 });
 
 test('segments start generous and grow each level (progressive length)', () => {

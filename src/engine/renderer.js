@@ -1,7 +1,12 @@
 // Renderer — canvas draw (§7, §8). The ONLY engine module that touches the DOM
 // besides input.js. v1.0: simple shapes / programmer-art, no parallax/particles (§7).
 
-import { WORLD } from '../constants.js';
+import { WORLD, SHIELD_TIERS, POWERUPS } from '../constants.js';
+
+// Shield-ring color by stacked count (v3.5).
+function shieldColor(n) {
+  return SHIELD_TIERS[Math.min(n, SHIELD_TIERS.length) - 1];
+}
 
 const COLORS = {
   player: '#ff6b35', // Summit orange (§7) — reads on both day + night skies
@@ -332,10 +337,11 @@ export function createRenderer(canvas) {
       ctx.stroke();
     }
     if (session.shield > 0) {
-      ctx.strokeStyle = '#5fd0e0';
-      ctx.lineWidth = 3;
+      // Ring colors up + thickens with the stacked count (v3.5).
+      ctx.strokeStyle = shieldColor(session.shield);
+      ctx.lineWidth = 2 + Math.min(session.shield, 5);
       ctx.beginPath();
-      ctx.arc(cx, cy, player.width * 0.9, 0, Math.PI * 2);
+      ctx.arc(cx, cy, player.width * 0.95, 0, Math.PI * 2);
       ctx.stroke();
     }
     if (session.doubleActive && session.doubleActive()) {
@@ -345,6 +351,46 @@ export function createRenderer(canvas) {
       ctx.fillText('2×', cx, player.y - 8);
       ctx.textAlign = 'start';
     }
+    drawPuIndicator(session);
+  }
+
+  // Top-left indicator: what power-ups are active + how many shields are stacked
+  // (v3.5). Each chip has a color tab + a remaining-time bar for the timed buffs.
+  function drawPuIndicator(session) {
+    const items = [];
+    if (session.shield > 0) {
+      items.push({ txt: `SHIELD ×${session.shield}`, col: shieldColor(session.shield), frac: 1 });
+    }
+    if (session.magnetActive && session.magnetActive()) {
+      items.push({ txt: 'MAGNET', col: '#ffd166', frac: (session.magnetUntil - session.meters) / POWERUPS.magnetMeters });
+    }
+    if (session.slowActive && session.slowActive()) {
+      items.push({ txt: 'SLOW-MO', col: '#7fb0ff', frac: (session.slowUntil - session.meters) / POWERUPS.slowMeters });
+    }
+    if (session.doubleActive && session.doubleActive()) {
+      items.push({ txt: '2× COINS', col: '#ffd166', frac: (session.doubleUntil - session.meters) / POWERUPS.doubleMeters });
+    }
+    if (!items.length) return;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = 'bold 11px system-ui, sans-serif';
+    const w = 96;
+    const h = 20;
+    let y = 8;
+    for (const it of items) {
+      ctx.fillStyle = 'rgba(7,17,32,0.6)';
+      ctx.fillRect(8, y, w, h);
+      ctx.fillStyle = it.col;
+      ctx.fillRect(8, y, 4, h); // color tab
+      const frac = Math.max(0, Math.min(1, it.frac));
+      ctx.globalAlpha = 0.55; // remaining-time bar
+      ctx.fillRect(12, y + h - 3, (w - 4) * frac, 3);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#f0f6ff';
+      ctx.fillText(it.txt, 18, y + 14);
+      y += h + 5;
+    }
+    ctx.textAlign = 'start';
   }
 
   // Choice gate overlay (v3.0): three power-up options, the highlighted one lit.

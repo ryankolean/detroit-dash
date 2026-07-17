@@ -55,14 +55,19 @@ export const PLAYER = {
 // World scroll + obstacle spawn tuning (§3, §4). All spawn randomness is drawn
 // from the seeded rng stream — never Math.random().
 //
-// Fairness (v3.0): difficulty ramps SLOWLY, and the gap to the next obstacle
-// GROWS with speed so reaction time stays roughly constant — obstacles never
-// crowd. gap = max(gapFloor, speed * reactionTime) + rng(0, gapVariety).
+// Fairness (v3.0) + no-plateau difficulty (v3.5): the gap to the next obstacle is
+// speed * reactionTime, so obstacles never crowd — BUT reactionTime now DECAYS
+// with distance, tightening the reaction window so difficulty keeps rising the
+// longer you survive (instead of plateauing once speed hits its cap).
+// gap = max(gapFloor, speed * reaction(meters)) + rng(0, gapVariety),
+//   reaction(m) = max(reactionFloor, reactionTime - reactionDrop * m).
 export const WORLD_TUNING = {
   baseSpeed: 250, // world-units / s at distance 0
-  maxSpeed: 540, // speed cap (lower than v1 for fairness)
-  speedRampPerMeter: 0.3, // slow ramp: reaches the cap around ~950 m
-  reactionTime: 0.85, // min seconds of runway between obstacles (fairness)
+  maxSpeed: 680, // speed cap (raised so pace keeps climbing longer)
+  speedRampPerMeter: 0.3, // reaches the cap around ~1430 m
+  reactionTime: 0.85, // starting seconds of runway between obstacles (early game)
+  reactionFloor: 0.52, // reaction window never drops below this (still clearable)
+  reactionDrop: 0.00014, // seconds of runway removed per meter (hits the floor ~2360 m)
   gapFloor: 240, // absolute minimum gap (world-units), regardless of speed
   gapVariety: 130, // rng spread added on top of the reaction-time gap
   obstacleWidths: [26, 34, 48], // simple-shape obstacle widths (rng.pick)
@@ -118,14 +123,17 @@ export const COUNTDOWN = {
 // regardless of speed). All deterministic.
 export const POWERUPS = {
   shieldHits: 1, // hits absorbed per shield pickup
-  maxShield: 2, // cap on banked shields (v3.1 balance — no invincibility hoarding)
+  maxShield: 5, // shields stack up to 5 (v3.5); the ring colors up per tier
   magnetMeters: 70, // coin-magnet duration
   magnetRange: 300, // world-units ahead within which coins are pulled in
-  slowMeters: 55, // slow-mo duration
-  slowFactor: 0.6, // scroll speed multiplier while slow-mo is active
+  slowMeters: 95, // slow-mo duration (v3.5: longer)
+  slowFactor: 0.78, // scroll speed multiplier while slow-mo is active (v3.5: less slow)
   doubleMeters: 70, // 2x coin-payout window duration
   doubleFactor: 2, // coin payout multiplier while active
 };
+
+// Shield-ring colors by stacked count (v3.5): cyan -> green -> gold -> orange -> red.
+export const SHIELD_TIERS = ['#5fd0e0', '#6fe08f', '#ffd166', '#ff9f43', '#ff5a3c'];
 
 // Cosmetic player skins (v3.1). Unlocked by play; ZERO gameplay effect, so the
 // leaderboard stays fair. `unlock` null = always available. Types: games (played),

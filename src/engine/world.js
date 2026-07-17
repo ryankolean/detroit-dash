@@ -33,9 +33,11 @@ export function createWorld(opts) {
         w: width,
         h: height,
       });
-      // Fair gap (v3.0): grows with speed so reaction time stays ~constant, plus
-      // seeded variety. Obstacles never crowd, even at the speed cap.
-      const reactionGap = Math.max(T.gapFloor, w.speed * T.reactionTime);
+      // Fair gap that gets HARDER with distance (v3.5): the reaction window decays
+      // from reactionTime toward reactionFloor as meters climb, so the gap shrinks
+      // relative to speed — difficulty keeps rising instead of plateauing.
+      const react = Math.max(T.reactionFloor, T.reactionTime - T.reactionDrop * w.meters);
+      const reactionGap = Math.max(T.gapFloor, w.speed * react);
       w.distToNextSpawn = reactionGap + rng.range(0, T.gapVariety);
 
       // Coin cluster trailing the obstacle, all drawn from the seeded stream so
