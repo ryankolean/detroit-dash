@@ -17,6 +17,7 @@ const THEMES = {
     far: '#8ba7bd', near: '#5f7a92', edge: '#43596f',
     brick: '#a5624e', dome: '#8fd7e2', glass: '#aecbe0',
     winLit: '#fbe9b0', winDim: 'rgba(255,255,255,0.16)', beacon: '#e8503a',
+    scrim: 'rgba(8,22,40,0.55)', outline: 'rgba(6,16,30,0.55)', // v3.3 contrast
   },
   night: {
     skyTop: '#081426', skyBot: '#12325a',
@@ -24,6 +25,7 @@ const THEMES = {
     far: '#0e2038', near: '#16304e', edge: '#0a1a2e',
     brick: '#5a3129', dome: '#1f5f6e', glass: '#1b3b5c',
     winLit: '#ffd166', winDim: 'rgba(120,160,200,0.10)', beacon: '#ff5a3c',
+    scrim: 'rgba(2,8,16,0.5)', outline: 'rgba(0,0,0,0.5)', // v3.3 contrast
   },
 };
 
@@ -68,6 +70,17 @@ export function createRenderer(canvas) {
     ctx.fillRect(0, WORLD.groundY, WORLD.width, WORLD.height - WORLD.groundY);
     ctx.fillStyle = t.groundLine;
     ctx.fillRect(0, WORLD.groundY, WORLD.width, 3);
+  }
+
+  // Play-lane scrim (v3.3): a dark gradient over the lower band so the runner +
+  // obstacles pop against a busy skyline, in both day and night themes.
+  const LANE_H = 140;
+  function drawLaneScrim(t) {
+    const g = ctx.createLinearGradient(0, WORLD.groundY - LANE_H, 0, WORLD.groundY);
+    g.addColorStop(0, 'transparent');
+    g.addColorStop(1, t.scrim);
+    ctx.fillStyle = g;
+    ctx.fillRect(0, WORLD.groundY - LANE_H, WORLD.width, LANE_H);
   }
 
   // One pixel-art building: body, window grid, and a landmark-specific top.
@@ -188,12 +201,26 @@ export function createRenderer(canvas) {
 
   // Canvas-drawn runner (v1.2): head, torso, swinging limbs. Legs cycle from the
   // scroll distance while grounded; tuck into a jump pose while airborne.
-  function drawPlayer(p, distance) {
+  function drawPlayer(p, distance, t = THEMES.night) {
     const { x, y, width: w, height: h } = p;
     const cx = x + w / 2;
     const grounded = p.grounded !== false; // plain test objects (no field) run
     const swing = Math.sin((distance || 0) * 0.05);
     const hipY = y + h - 14;
+
+    // Contact shadow (v3.3): grounds the runner + adds separation. Shrinks/fades
+    // as the player rises so a jump reads clearly.
+    const airGap = Math.max(0, WORLD.groundY - (y + h));
+    const near = Math.max(0, Math.min(1, 1 - airGap / 220));
+    if (near > 0) {
+      ctx.save();
+      ctx.globalAlpha = 0.3 * near;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.ellipse(cx, WORLD.groundY - 1, (w / 2) * (0.55 + 0.45 * near), 4.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
 
     // Legs
     ctx.strokeStyle = skin.dark;
@@ -231,6 +258,15 @@ export function createRenderer(canvas) {
     ctx.fill();
     ctx.fillStyle = '#0b1d33';
     ctx.fillRect(cx - 1, y + 6, 8, 4);
+
+    // Outline (v3.3): thin dark stroke around torso + head so the runner
+    // separates from bright day buildings and the busy skyline.
+    ctx.strokeStyle = t.outline;
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(x + 6, y + 12, w - 12, h - 26);
+    ctx.beginPath();
+    ctx.arc(cx, y + 9, 9.5, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   // Detroit-icon bonus collectible (v1.4): a teal badge with a landmark emblem —
@@ -310,7 +346,7 @@ export function createRenderer(canvas) {
   function drawGate(session) {
     if (!session || !session.gate) return;
     const g = session.gate;
-    ctx.fillStyle = 'rgba(11,29,51,0.6)';
+    ctx.fillStyle = 'rgba(7,17,32,0.82)'; // v3.3: stronger scrim for legible options
     ctx.fillRect(0, 0, WORLD.width, WORLD.height);
     ctx.fillStyle = '#f0f6ff';
     ctx.font = 'bold 20px system-ui, sans-serif';
@@ -336,7 +372,7 @@ export function createRenderer(canvas) {
       ctx.font = 'bold 18px system-ui, sans-serif';
       ctx.fillText(PU_LABEL[opt] || opt, x + boxW / 2, y0 + boxH / 2 + 6);
     });
-    ctx.fillStyle = 'rgba(240,246,255,0.85)';
+    ctx.fillStyle = 'rgba(240,246,255,0.96)';
     ctx.font = '14px system-ui, sans-serif';
     ctx.fillText('Tap to lock in the highlighted option', WORLD.width / 2, y0 + boxH + 34);
     ctx.textAlign = 'start';
@@ -346,6 +382,7 @@ export function createRenderer(canvas) {
     const t = THEMES[themeName] || THEMES.night;
     clear(t);
     drawSkyline(skyline, world.distance || 0, t);
+    drawLaneScrim(t); // v3.3: darken behind the action so foreground pops
     drawGround(t);
     for (const o of world.obstacles) drawObstacle(o);
     for (const c of world.coins) {
@@ -365,7 +402,7 @@ export function createRenderer(canvas) {
       ctx.closePath();
       ctx.fill();
     }
-    drawPlayer(player, world.distance || 0);
+    drawPlayer(player, world.distance || 0, t);
     drawPowerups(player, session);
     drawParticles(particles);
     drawGate(session);

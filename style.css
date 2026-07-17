@@ -87,7 +87,7 @@ body {
 }
 
 #hint {
-  opacity: 0.7;
+  opacity: 0.88;
   font-size: clamp(0.8rem, 2.5vw, 0.95rem);
 }
 
@@ -99,7 +99,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(11, 29, 51, 0.72); /* dim the game behind the card */
+  background: rgba(9, 22, 40, 0.86); /* dim the game behind the card */
 }
 
 #result[hidden] {
@@ -117,12 +117,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+  /* Overlay cards are always dark surfaces — force light text so day-theme
+     (dark --fg for the light page frame) never washes them out (v3.3). */
+  color: #f0f6ff;
 }
 
 .result-card h2 {
   font-size: 1.1rem;
   font-weight: 600;
-  opacity: 0.9;
+  opacity: 1;
 }
 
 .result-score {
@@ -142,7 +145,7 @@ body {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .result-stats dd {
@@ -186,12 +189,12 @@ body {
 .result-share-status {
   min-height: 1.2em;
   font-size: 0.85rem;
-  opacity: 0.8;
+  opacity: 0.95;
 }
 
 .result-countdown {
   font-size: 0.9rem;
-  opacity: 0.7;
+  opacity: 0.9;
   font-variant-numeric: tabular-nums;
 }
 
@@ -215,7 +218,7 @@ body {
 
 .result-breakdown {
   font-size: 0.85rem;
-  opacity: 0.75;
+  opacity: 0.92;
   margin-top: -0.25rem;
 }
 
@@ -249,7 +252,7 @@ body {
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  background: rgba(11, 29, 51, 0.72);
+  background: rgba(9, 22, 40, 0.86);
 }
 
 #stats[hidden] {
@@ -266,6 +269,7 @@ body {
   border-radius: 12px;
   padding: 1.25rem 1.5rem 1.5rem;
   animation: result-pop 0.24s ease-out;
+  color: #f0f6ff; /* always-dark surface -> light text regardless of page theme (v3.3) */
 }
 
 .stats-head {
@@ -303,7 +307,7 @@ body {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.6;
+  opacity: 0.8;
 }
 
 .stats-grid dd {
@@ -314,7 +318,7 @@ body {
 
 .stats-card h3 {
   font-size: 0.9rem;
-  opacity: 0.8;
+  opacity: 0.92;
   margin-bottom: 0.5rem;
 }
 
@@ -337,7 +341,7 @@ body {
 
 .stats-empty {
   justify-content: center !important;
-  opacity: 0.7;
+  opacity: 0.85;
 }
 
 /* Cosmetic skins picker in the stats overlay (v3.1). */
@@ -373,7 +377,7 @@ body {
 }
 
 .skin-locked {
-  opacity: 0.55;
+  opacity: 0.75;
   cursor: default;
 }
 
@@ -427,7 +431,7 @@ body {
 
 .board-empty,
 .board-status {
-  opacity: 0.7;
+  opacity: 0.88;
   font-size: 0.85rem;
   text-align: center;
 }
@@ -435,7 +439,7 @@ body {
 .board-rank {
   margin-top: 0.4rem;
   font-size: 0.85rem;
-  opacity: 0.85;
+  opacity: 0.95;
   font-weight: 600;
 }
 

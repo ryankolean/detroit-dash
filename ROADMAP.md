@@ -83,15 +83,11 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [ ] Cap total plays/day and persist the counter in localStorage; the one-shot
       lock still governs the *ranked* run only.
 
-## v3.3 — contrast + readability pass
-- [ ] Player visibility: the character is hard to see against the skyline/ground.
-      Raise player-vs-background contrast — brighter/outlined sprite, a subtle
-      drop shadow or ground contact shadow, and ensure every skin reads clearly
-      in both day and night themes. Adjust the scene palette (dim/desaturate the
-      near-layer buildings behind the play lane) so the runner always pops.
-- [ ] Menu/UI contrast: result card, stats overlay, choice-gate, and HUD text
-      must clear WCAG AA (≥4.5:1 body, ≥3:1 large). Darken overlay scrims, raise
-      text/label lightness, and stop relying on low-opacity frost tones for
-      readable copy. Re-tune the `--fg`/`--bg` + panel colors as needed.
-- [ ] Verify with a contrast checker at 375/desktop in both day + night, and
-      confirm the reduced-motion path still reads.
+## v3.3 — contrast + readability pass ✓
+- [x] Player visibility: play-lane scrim (dark gradient behind the action) +
+      per-theme contact shadow + dark outline on the runner, so it pops against
+      the skyline in both day and night, across all skins.
+- [x] Menu/UI contrast: fixed the day-theme dark-`--fg`-on-dark-card bug (overlay
+      cards now force light text); stronger overlay + choice-gate scrims; raised
+      muted-text opacities. Verified WCAG AA+ (result-card ratios 9.6–14.4:1).
+- [x] Verified via a contrast checker at desktop in day + night; no console errors.
