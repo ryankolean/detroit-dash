@@ -130,15 +130,16 @@ export function createSession(seed) {
       const payout = s.doubleActive() ? POWERUPS.doubleFactor : 1;
       for (let i = world.coins.length - 1; i >= 0; i--) {
         const c = world.coins[i];
+        if (c.missed) continue; // already counted; let it scroll off-screen (world.update)
         const overlaps = aabbIntersects(box, c);
         const pulled = magnet && c.x <= player.x + POWERUPS.magnetRange && c.x + c.w > player.x;
         if (overlaps || pulled) {
           scorer.collect(c, payout);
           collected.push({ x: c.x + c.w / 2, y: c.y + c.h / 2, icon: c.icon ?? null });
-          world.coins.splice(i, 1);
+          world.coins.splice(i, 1); // collected coins vanish on pickup
         } else if (c.x + c.w < player.x) {
-          scorer.miss(); // passed uncollected -> combo breaks
-          world.coins.splice(i, 1);
+          scorer.miss(); // passed uncollected -> combo breaks (counted once)
+          c.missed = true; // but keep it visible; it fades out as it scrolls off
         }
       }
 

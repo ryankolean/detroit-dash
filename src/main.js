@@ -419,7 +419,9 @@ function startRun() {
   const onJump = () => {
     pendingTap = true;
   };
-  const unbindInput = bindInput({ target: canvas, onJump });
+  // Whole-screen tap target so jumping works anywhere — including below the
+  // canvas, comfortable for a thumb held low on a phone (buttons still work).
+  const unbindInput = bindInput({ target: document, onJump });
 
   const loop = createLoop({
     update() {

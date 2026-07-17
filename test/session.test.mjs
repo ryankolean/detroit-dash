@@ -81,6 +81,21 @@ test('shield is capped (no invincibility hoarding, v3.1 balance)', () => {
   assert.ok(POWERUPS.maxShield <= 3, 'cap stays small');
 });
 
+test('an uncollected coin stays on screen (missed once) until it scrolls off', () => {
+  const s = createSession(SEED);
+  // Place a coin just past the player's left edge so it misses on the next step.
+  s.world.coins.length = 0;
+  s.world.coins.push({ x: s.player.x - 40, y: 360, w: 20, h: 20, icon: null });
+  s.step(false);
+  const coin = s.world.coins.find((c) => c.missed);
+  assert.ok(coin, 'the missed coin remains in the world (not removed on pass)');
+  assert.equal(s.scorer.comboCount, 0); // miss recorded (combo broken/zero)
+  // A second step must not double-count the same miss.
+  const before = s.scorer.comboCount;
+  s.step(false);
+  assert.equal(s.scorer.comboCount, before);
+});
+
 test('slow-mo reduces scroll distance over the same steps', () => {
   const normal = createSession(SEED);
   for (let i = 0; i < 60; i++) normal.step(false);

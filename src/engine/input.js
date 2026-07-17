@@ -4,7 +4,9 @@
 /**
  * bindInput — attach listeners that call `onJump` for any jump input.
  * @param {Object} opts
- * @param {HTMLElement} opts.target - element to listen on (usually the canvas).
+ * @param {EventTarget} opts.target - element to listen on. Pass a broad target
+ *   (e.g. document) so a tap anywhere on the screen jumps — comfortable for
+ *   thumbs low on a phone. Taps on buttons/links are ignored so UI still works.
  * @param {() => void} opts.onJump - fired on tap / Space / ArrowUp / click.
  * @returns {() => void} unbind - removes all listeners.
  */
@@ -18,7 +20,10 @@ export function bindInput(opts) {
     }
   };
   const onPointer = (e) => {
-    e.preventDefault(); // pointerdown handles both touch + mouse; blocks synthetic click double-fire
+    // Let taps on interactive controls (mute, stats, result buttons) do their
+    // own thing instead of jumping.
+    if (e.target && e.target.closest && e.target.closest('button, a, input, select')) return;
+    e.preventDefault(); // pointerdown handles touch + mouse; blocks synthetic click double-fire
     onJump();
   };
 

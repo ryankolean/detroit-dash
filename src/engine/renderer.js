@@ -386,21 +386,25 @@ export function createRenderer(canvas) {
     drawGround(t);
     for (const o of world.obstacles) drawObstacle(o);
     for (const c of world.coins) {
+      // Missed coins stay on screen but dim, so they read as no-longer-collectible
+      // while they scroll off (v3.3).
+      if (c.missed) ctx.globalAlpha = 0.35;
       if (c.icon != null) {
         drawIcon(c);
-        continue;
+      } else {
+        // Plain coin — gold diamond, reads differently from square obstacles.
+        const cx = c.x + c.w / 2;
+        const cy = c.y + c.h / 2;
+        ctx.fillStyle = COLORS.coin;
+        ctx.beginPath();
+        ctx.moveTo(cx, c.y);
+        ctx.lineTo(c.x + c.w, cy);
+        ctx.lineTo(cx, c.y + c.h);
+        ctx.lineTo(c.x, cy);
+        ctx.closePath();
+        ctx.fill();
       }
-      // Plain coin — gold diamond, reads differently from square obstacles.
-      const cx = c.x + c.w / 2;
-      const cy = c.y + c.h / 2;
-      ctx.fillStyle = COLORS.coin;
-      ctx.beginPath();
-      ctx.moveTo(cx, c.y);
-      ctx.lineTo(c.x + c.w, cy);
-      ctx.lineTo(cx, c.y + c.h);
-      ctx.lineTo(c.x, cy);
-      ctx.closePath();
-      ctx.fill();
+      ctx.globalAlpha = 1;
     }
     drawPlayer(player, world.distance || 0, t);
     drawPowerups(player, session);
