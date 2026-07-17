@@ -9,6 +9,13 @@ export const LAUNCH_EPOCH = '2026-07-20';
 // Timezone that defines the daily rollover for all players (§4).
 export const TIMEZONE = 'America/Detroit';
 
+// PLAYTEST mode (temporary): unlimited daily plays for everyone — bypasses the
+// one-shot lock and shows a Play-again button, while best/streak still persist.
+// Set back to false to restore the one-shot daily. Keep OFF once the ranked
+// leaderboard is live (unlimited plays + a ranked board breaks "one shot" — see
+// ROADMAP v3.2, extra plays must be unranked).
+export const PLAYTEST = true;
+
 // localStorage namespace (§6). Bump the version suffix only on a breaking schema change.
 export const STORAGE_KEY = 'detroit-dash/v1';
 

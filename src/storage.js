@@ -125,8 +125,17 @@ export function save(state) {
 export function recordRun(prev, run) {
   const { todayKey, score, icons = 0, segment = 0 } = run;
 
-  // Same-day replay guard: never double-record today's one-shot (§6).
-  if (prev.lastPlayedDay === todayKey) return prev;
+  // Same-day replay (playtest / unlimited plays): keep the streak one-per-day,
+  // but still let best score + lifetime stats improve so replays feel rewarding.
+  if (prev.lastPlayedDay === todayKey) {
+    return {
+      ...prev,
+      bestScore: Math.max(prev.bestScore, score),
+      history: [...prev.history, { day: todayKey, score }].slice(-HISTORY_CAP),
+      totalIcons: (prev.totalIcons || 0) + icons,
+      bestSegment: Math.max(prev.bestSegment || 0, segment),
+    };
+  }
 
   let currentStreak;
   if (prev.lastPlayedDay && prev.lastPlayedDay === previousDayKey(todayKey)) {

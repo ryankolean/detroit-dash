@@ -68,7 +68,7 @@ test('streak: first run ever -> streak 1', () => {
   assert.equal(next.bestScore, 42);
 });
 
-test('streak: same day -> unchanged (one-shot lock)', () => {
+test('streak: same day -> streak unchanged, but best improves (playtest replays)', () => {
   const prev = stateWith({
     lastPlayedDay: '20260715',
     currentStreak: 4,
@@ -77,7 +77,11 @@ test('streak: same day -> unchanged (one-shot lock)', () => {
     history: [{ day: '20260715', score: 2000 }],
   });
   const next = recordRun(prev, { todayKey: '20260715', score: 9999 });
-  assert.equal(next, prev); // returns prev unchanged; no double-record
+  assert.equal(next.currentStreak, 4); // streak stays one-per-day
+  assert.equal(next.maxStreak, 8);
+  assert.equal(next.lastPlayedDay, '20260715');
+  assert.equal(next.bestScore, 9999); // best still improves on a same-day replay
+  assert.equal(next.history.length, 2); // the replay is recorded
 });
 
 test('history is capped to 60 entries', () => {

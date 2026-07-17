@@ -21,7 +21,7 @@ import { buildShareText, copyShareText } from './shareCard.js';
 import { getDevConfig } from './dev.js';
 import { fetchBoard, submitScore } from './net.js';
 import { sanitizeName } from './leaderboard.js';
-import { TIMEZONE, BACKEND_URL, CLIENT_KEY, SKINS, TRAILS } from './constants.js';
+import { TIMEZONE, BACKEND_URL, CLIENT_KEY, SKINS, TRAILS, PLAYTEST } from './constants.js';
 
 // --- DOM handles -----------------------------------------------------------
 const canvas = document.getElementById('stage');
@@ -49,7 +49,12 @@ const puzzleNo = puzzleNumber(today);
 const seed = dev.seed ?? seedFromDay(today);
 let state = load();
 
-hudPuzzle.textContent = `Detroit Dash #${puzzleNo}${dev.enabled ? ' · DEV' : ''}`;
+// Unlimited daily plays: dev flags OR the temporary PLAYTEST mode. Bypasses the
+// one-shot lock and offers Play again. (dev additionally skips persistence.)
+const unlimitedPlays = dev.enabled || PLAYTEST;
+
+const hudTag = dev.enabled ? ' · DEV' : PLAYTEST ? ' · PLAYTEST' : '';
+hudPuzzle.textContent = `Detroit Dash #${puzzleNo}${hudTag}`;
 hudStreak.textContent = `🔥 ${state.currentStreak}`;
 
 const renderer = createRenderer(canvas);
@@ -137,7 +142,7 @@ function showResult({ score, best, streak, alreadyPlayed, isNewBest = false, bre
     if (breakdown.maxMult > 1) bits.push(`best ×${breakdown.maxMult}`);
     breakdownRow = `<p class="result-breakdown">${bits.join(' · ')}</p>`;
   }
-  const footer = dev.enabled
+  const footer = unlimitedPlays
     ? '<button id="replay-btn" type="button" class="result-replay">Play again</button>'
     : '<p class="result-countdown">Next dash in <span id="countdown">--:--:--</span></p>';
 
@@ -176,7 +181,7 @@ function showResult({ score, best, streak, alreadyPlayed, isNewBest = false, bre
   document.getElementById('result-stats-btn').addEventListener('click', openStats);
   shareBtn.focus(); // a11y: move focus into the result dialog
 
-  if (dev.enabled) {
+  if (unlimitedPlays) {
     document.getElementById('replay-btn').addEventListener('click', () => {
       resultEl.hidden = true;
       hintEl.hidden = false;
@@ -504,7 +509,7 @@ function startRun() {
 }
 
 // --- Boot ------------------------------------------------------------------
-if (!dev.enabled && isLockedFor(state, today)) {
+if (!unlimitedPlays && isLockedFor(state, today)) {
   // One-shot lock: straight to the result/lock screen, no replay (§6).
   const played = state.history.find((h) => h.day === today);
   showResult({

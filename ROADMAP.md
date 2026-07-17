@@ -68,6 +68,12 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
 - [ ] (later) More skins + trail styles
 
 ## v3.2 — extra plays (ad / social share)
+- [~] **PLAYTEST NOW:** `PLAYTEST = true` in `constants.js` gives everyone
+      **unlimited daily plays** (one-shot lock bypassed, Play-again button, best +
+      stats still persist) to drive engagement during the open playtest. Safe
+      while the leaderboard is off (`BACKEND_URL=''`). **Set `PLAYTEST=false`
+      before the ranked board goes live** — then land the ad/share flow below as
+      the real (unranked) extra-plays mechanic.
 - [ ] Earn additional plays by watching a rewarded ad or performing a social share
 - [ ] **Ranked integrity is non-negotiable:** only the first (one-shot) run of the
       day submits to the daily leaderboard. Extra plays are **unranked practice** —
