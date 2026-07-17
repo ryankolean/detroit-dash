@@ -413,8 +413,13 @@ function startRun() {
   const session = createSession(seed);
   const { player } = session;
   const particles = createParticles();
-  const tapSteps = []; // recorded input timeline for replay-verified submit (v2.0)
-  let pendingTap = false;
+  // Recorded input timeline for replay-verified submit (v2.0). With the held-jump
+  // model (v3.6) this is a flat ascending list of the STEP indices where the button
+  // toggled (down, up, down, …); replay reconstructs held-per-step by parity. Still
+  // a strictly-ascending int array, so the leaderboard's validation is unchanged.
+  const inputToggles = [];
+  let held = false; // is the jump button down right now?
+  let recordedHeld = false; // last held value written to inputToggles
   let over = false;
 
   // Cosmetic trail config for this run (v3.1) — color from the trail, or the skin.
@@ -425,23 +430,30 @@ function startRun() {
       ? { ...trailDef, color: trailDef.color || skinDef.body }
       : null;
 
-  // Input flags a tap; it's APPLIED at the next step boundary so the live run
-  // matches replayScore(dayKey, tapSteps) exactly. A tap is a jump, or a gate
+  // The button is a level (down/up); the session derives the press edge + the
+  // variable-jump cut from it. Sampling `held` once per step keeps the live run
+  // identical to replayScore(dayKey, inputToggles). A press is a jump, or a gate
   // pick when a gate is open — the session decides.
-  const onJump = () => {
-    pendingTap = true;
+  const onDown = () => {
+    held = true;
+  };
+  const onUp = () => {
+    held = false;
   };
   // Whole-screen tap target so jumping works anywhere — including below the
   // canvas, comfortable for a thumb held low on a phone (buttons still work).
-  const unbindInput = bindInput({ target: document, onJump });
+  const unbindInput = bindInput({ target: document, onDown, onUp });
 
   const loop = createLoop({
     update() {
-      const tapped = pendingTap;
-      pendingTap = false;
+      // Record a toggle at the step where the sampled button state changes, so
+      // replay's parity reconstruction matches the live run exactly.
+      if (held !== recordedHeld) {
+        inputToggles.push(session.stepCount);
+        recordedHeld = held;
+      }
       const wasGrounded = player.grounded;
-      if (tapped) tapSteps.push(session.stepCount);
-      const r = session.step(tapped);
+      const r = session.step(held);
       if (r.jumped && wasGrounded) {
         if (!reduceMotion) particles.jump(player.x + player.width / 2, player.y + player.height);
         audio.jump();
@@ -516,7 +528,7 @@ function startRun() {
       isNewBest,
       breakdown,
     });
-    submitAndRenderBoard(today, tapSteps); // replay-verified leaderboard (v2.0)
+    submitAndRenderBoard(today, inputToggles); // replay-verified leaderboard (v2.0)
   }
 
   loop.start();

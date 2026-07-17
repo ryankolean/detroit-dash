@@ -44,6 +44,7 @@ export function createSession(seed) {
     gate: null, // active choice gate: { options, highlight, startStep }
     countdown: null, // post-pick "3·2·1·GO" freeze: { startStep }
     shield: 0,
+    prevHeld: false, // button state last step — lets step() derive the press edge (v3.6)
     // Power-up windows expire at a meters mark; -1 = inactive.
     magnetUntil: -1,
     slowUntil: -1,
@@ -80,18 +81,23 @@ export function createSession(seed) {
 
     /**
      * step — advance exactly one fixed DT step.
-     * @param {boolean} tapped - did the player tap this step (jump, or gate pick)?
+     * @param {boolean} held - is the jump button down this step? A rising edge
+     *   (down when it was up) is a jump, or a gate pick when a gate is open;
+     *   sustaining `held` while rising rides the full jump arc (v3.6).
      * @returns {{ alive:boolean, jumped:boolean, picked:(string|null), collected:Array }}
      */
-    step(tapped) {
+    step(held) {
       if (!s.alive) return { alive: false, jumped: false, picked: null, collected: [] };
+      // Press edge = down now, up last step. `held` (level) drives the jump-cut.
+      const pressed = held && !s.prevHeld;
+      s.prevHeld = held;
 
-      // --- Gate open: world is frozen (safe pick). Tap or timeout selects. ---
+      // --- Gate open: world is frozen (safe pick). Press or timeout selects. ---
       if (s.gate) {
         const elapsed = s.stepCount - s.gate.startStep;
         s.gate.highlight = Math.floor(elapsed / GATE.cyclePeriodSteps) % s.gate.options.length;
         let picked = null;
-        if (tapped || elapsed >= GATE.timeoutSteps) {
+        if (pressed || elapsed >= GATE.timeoutSteps) {
           picked = s.gate.options[s.gate.highlight];
           s.activate(picked);
           s.gate = null;
@@ -114,14 +120,15 @@ export function createSession(seed) {
       // --- Normal step ---
       const slow = s.slowActive();
       let jumped = false;
-      if (tapped) {
+      if (pressed) {
         player.jump();
         jumped = true;
       }
       world.update(DT, slow ? POWERUPS.slowFactor : 1);
       // Slow-mo scales the player's clock too (bullet time). Apex height depends
       // on velocity/gravity, not dt — so the jump still reaches full height.
-      player.update(DT * (slow ? POWERUPS.slowFactor : 1));
+      // `held` drives the variable-jump cut: release mid-rise -> short hop (v3.6).
+      player.update(DT * (slow ? POWERUPS.slowFactor : 1), held);
 
       // Coin collection (+ magnet pull, + 2x payout).
       const collected = [];

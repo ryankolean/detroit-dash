@@ -42,12 +42,19 @@ export const DT = 1 / 60;
 export const WORLD = { width: 800, height: 450, groundY: 380 };
 
 // Player sim tuning (§3). Units: world-units, seconds. Gravity is +down.
+//
+// Variable jump (v3.6, Super Mario model): pressing pops the runner up at the
+// full jumpVelocity, but releasing while still rising CAPS the upward speed to
+// jumpCutVelocity — so a quick tap is a low hop and holding rides the full arc.
+// As the game speeds up, short hops recover faster, so the player wants to hold
+// only as long as the obstacle demands.
 export const PLAYER = {
   x: 120, // fixed horizontal position; the world scrolls past
   width: 34,
   height: 44,
   gravity: 2400, // world-units / s^2
-  jumpVelocity: -760, // instantaneous upward velocity on jump
+  jumpVelocity: -760, // instantaneous upward velocity on press (full jump)
+  jumpCutVelocity: -300, // released mid-rise: upward speed is clamped to this (short hop)
   coyoteTime: 0.08, // seconds after leaving ground a jump still fires (§3)
   hitboxInset: 6, // forgiving hitbox: inset from the sprite on each side (§3)
 };
@@ -70,20 +77,41 @@ export const WORLD_TUNING = {
   reactionDrop: 0.00014, // seconds of runway removed per meter (hits the floor ~2360 m)
   gapFloor: 240, // absolute minimum gap (world-units), regardless of speed
   gapVariety: 130, // rng spread added on top of the reaction-time gap
-  obstacleWidths: [26, 34, 48], // simple-shape obstacle widths (rng.pick)
-  obstacleHeights: [34, 52, 70], // heights (rng.pick)
 };
+
+// Obstacle catalog (v3.6). A weighted set of distinct Detroit hazards, each with
+// a base size + per-spawn jitter (jw/jh = ± world-units) so no two look alike.
+// `weight` biases the seeded pick toward the common ones. Short types (pothole,
+// cone) clear with a quick tap; tall/wide types (pillar, car, smokestack) demand
+// a longer held jump — the variable-jump skill curve. All picks are seeded.
+export const OBSTACLES = [
+  { id: 'pothole', w: 58, h: 14, jw: 10, jh: 4, weight: 3 }, // wide, low — tap to clear
+  { id: 'cone', w: 18, h: 26, jw: 3, jh: 5, weight: 3 }, // small traffic cone
+  { id: 'barrel', w: 30, h: 38, jw: 4, jh: 6, weight: 3 }, // orange construction barrel
+  { id: 'thinbarrel', w: 16, h: 50, jw: 2, jh: 8, weight: 2 }, // narrow, tall barrel
+  { id: 'pillar', w: 32, h: 56, jw: 5, jh: 8, weight: 2 }, // People Mover support column
+  { id: 'car', w: 68, h: 42, jw: 10, jh: 6, weight: 2 }, // broken-down car — wide, hold longer
+  { id: 'smokestack', w: 34, h: 72, jw: 5, jh: 8, weight: 1 }, // factory stack — tallest
+];
 
 // 1 meter of score == this many world-units of scroll. Distance score = floor(meters).
 export const METERS_PER_UNIT = 0.1;
 
 // Collectibles + streak-combo scoring (v1.1). Coins spawn from the seeded stream
 // so the course stays identical for everyone; collecting is auto on overlap.
+// Coin clusters (v1.1) with high-variance layout (v3.6). Every cluster draws its
+// elevation tier, horizontal spacing, lead offset, and shape (flat line vs jump
+// arc) from the seed, so collectible placement varies widely run-to-run while
+// staying identical for everyone. High tiers reward a full held jump.
 export const COIN = {
   size: 20, // square coin, world-units
-  elevatedY: 150, // elevated coins sit this many units above the ground (jump to reach)
-  clusterGap: 44, // horizontal spacing between coins in a cluster
-  leadOffset: 90, // spawn coins this far past the right edge, trailing the obstacle
+  elevTiers: [16, 64, 116, 168], // elevation above ground the cluster can sit at (rng.pick)
+  clusterGapMin: 30, // min horizontal spacing between coins in a cluster
+  clusterGapMax: 62, // max spacing
+  leadOffMin: 55, // min distance past the right edge to start the cluster
+  leadOffMax: 150, // max lead
+  arcChance: 0.5, // chance the cluster bows into a jump arc instead of a flat line
+  arcHeight: 46, // peak rise (world-units) of an arc cluster
   base: 50, // base points per coin, before the combo multiplier
   comboStep: 2, // coins per multiplier tier (2 coins -> +1x)
   maxMult: 5, // multiplier cap
@@ -91,6 +119,14 @@ export const COIN = {
   iconChance: 0.35, // chance a cluster's lead coin is a Detroit-icon bonus (v1.4)
   iconBonus: 200, // base points for an icon token (before the combo multiplier)
   iconTypes: 3, // Joe Louis fist, Spirit of Detroit, Guardian Building
+};
+
+// Checkered finish line (v3.6): a race-banner marker that scrolls in with the
+// world as the run nears the next choice gate, telegraphing "section ending —
+// power-up ahead". Purely cosmetic; derived from the gate's meters mark.
+export const FINISH = {
+  height: 130, // banner height above the ground line (world-units)
+  cell: 11, // checker square size (world-units)
 };
 
 // Roguelite: choice gates + power-ups (v3.0). Deterministic and input-driven —

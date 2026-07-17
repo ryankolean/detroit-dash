@@ -1,7 +1,7 @@
 // Renderer — canvas draw (§7, §8). The ONLY engine module that touches the DOM
 // besides input.js. v1.0: simple shapes / programmer-art, no parallax/particles (§7).
 
-import { WORLD, SHIELD_TIERS, POWERUPS } from '../constants.js';
+import { WORLD, SHIELD_TIERS, POWERUPS, FINISH, METERS_PER_UNIT, PLAYER } from '../constants.js';
 
 // Shield-ring color by stacked count (v3.5).
 function shieldColor(n) {
@@ -170,44 +170,141 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
   }
 
-  // Detroit-flavored hazard obstacles (v1.4), themed by height so they read as
-  // things you'd dodge downtown. Clipped to the collision box (never exceeds it).
+  // --- Per-type obstacle art (v3.6). Each fills its collision box so the visual
+  // matches the hitbox (fair). Clipped to the box; drawObstacle dispatches by type.
+  function drawBarrel(x, y, w, h) {
+    // Michigan orange construction barrel — the state's unofficial mascot. Works
+    // at any width, so the thin barrel reuses it.
+    ctx.fillStyle = '#e8620a';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#f3f3f3'; // reflective bands
+    ctx.fillRect(x, y + h * 0.28, w, 6);
+    ctx.fillRect(x, y + h * 0.62, w, 6);
+    ctx.fillStyle = '#7a3406'; // rim shadows
+    ctx.fillRect(x, y, w, 3);
+    ctx.fillRect(x, y + h - 3, w, 3);
+  }
+  function drawPillar(x, y, w, h) {
+    // People Mover support pillar — concrete column + blue transit band.
+    ctx.fillStyle = '#9aa4ad';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#7b858e'; // shaded right side
+    ctx.fillRect(x + w - 5, y, 5, h);
+    ctx.fillStyle = '#1f6fb0'; // People Mover blue band + window
+    ctx.fillRect(x, y + 6, w, 14);
+    ctx.fillStyle = '#cfe6f5';
+    ctx.fillRect(x + 4, y + 9, w - 8, 8);
+  }
+  function drawSmokestack(x, y, w, h) {
+    // Factory smokestack — Detroit industry. Brick with band rings + steel cap.
+    ctx.fillStyle = '#8a3b2e';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#a5624e'; // mortar band rings
+    for (let by = y + 12; by < y + h; by += 18) ctx.fillRect(x, by, w, 4);
+    ctx.fillStyle = '#5a5f66'; // steel cap
+    ctx.fillRect(x - 1, y, w + 2, 8);
+  }
+  function drawPothole(x, y, w, h) {
+    // Wide, low road hazard — asphalt patch, dark hole, orange hazard edge.
+    ctx.fillStyle = '#2b2f33';
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = '#0b0d0f';
+    ctx.beginPath();
+    ctx.ellipse(x + w / 2, y + h * 0.62, w * 0.42, h * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e8620a'; // hazard lip
+    ctx.fillRect(x, y, w, 3);
+    ctx.fillStyle = '#f3c34a'; // reflective dashes
+    for (let dx = x + 3; dx < x + w - 4; dx += 10) ctx.fillRect(dx, y, 5, 2);
+  }
+  function drawCone(x, y, w, h) {
+    // Traffic cone — orange body with a reflective band + base skirt.
+    ctx.fillStyle = '#e8620a';
+    ctx.beginPath();
+    ctx.moveTo(x + w / 2, y); // peak
+    ctx.lineTo(x + w, y + h); // base right
+    ctx.lineTo(x, y + h); // base left
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#f3f3f3';
+    ctx.fillRect(x + w * 0.14, y + h * 0.44, w * 0.72, Math.max(3, h * 0.16));
+    ctx.fillStyle = '#7a3406';
+    ctx.fillRect(x, y + h - 3, w, 3);
+  }
+  function drawCar(x, y, w, h) {
+    // Broken-down car — wide, so it demands a longer held jump to clear.
+    ctx.fillStyle = '#8a3b2e'; // rusty body
+    ctx.fillRect(x, y + h * 0.42, w, h * 0.58);
+    ctx.fillStyle = '#6f2f24'; // cabin
+    ctx.fillRect(x + w * 0.24, y, w * 0.5, h * 0.5);
+    ctx.fillStyle = '#cfe6f5'; // windows
+    ctx.fillRect(x + w * 0.28, y + h * 0.08, w * 0.42, h * 0.28);
+    ctx.fillStyle = '#15181b'; // wheels (bottom, clipped to box)
+    const r = Math.min(h * 0.2, w * 0.13);
+    ctx.beginPath();
+    ctx.arc(x + w * 0.26, y + h, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x + w * 0.74, y + h, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffd166'; // headlight
+    ctx.fillRect(x + w - 4, y + h * 0.55, 4, 5);
+  }
+
+  const OBSTACLE_ART = {
+    pothole: drawPothole,
+    cone: drawCone,
+    barrel: drawBarrel,
+    thinbarrel: drawBarrel,
+    pillar: drawPillar,
+    car: drawCar,
+    smokestack: drawSmokestack,
+  };
+
+  // Detroit-flavored hazard obstacles (v1.4, typed v3.6). Clipped to the collision
+  // box; dispatched by type, with a height-band fallback for untyped test objects.
   function drawObstacle(o) {
-    const { x, y, w, h } = o;
+    const { x, y, w, h, type } = o;
     ctx.save();
     ctx.beginPath();
     ctx.rect(x, y, w, h);
     ctx.clip();
-    if (h <= 40) {
-      // Michigan orange construction barrel — the state's unofficial mascot.
-      ctx.fillStyle = '#e8620a';
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#f3f3f3'; // reflective bands
-      ctx.fillRect(x, y + h * 0.28, w, 6);
-      ctx.fillRect(x, y + h * 0.62, w, 6);
-      ctx.fillStyle = '#7a3406'; // rim shadows
-      ctx.fillRect(x, y, w, 3);
-      ctx.fillRect(x, y + h - 3, w, 3);
-    } else if (h <= 56) {
-      // People Mover support pillar — concrete column + blue transit band.
-      ctx.fillStyle = '#9aa4ad';
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#7b858e'; // shaded right side
-      ctx.fillRect(x + w - 5, y, 5, h);
-      ctx.fillStyle = '#1f6fb0'; // People Mover blue band + window
-      ctx.fillRect(x, y + 6, w, 14);
-      ctx.fillStyle = '#cfe6f5';
-      ctx.fillRect(x + 4, y + 9, w - 8, 8);
-    } else {
-      // Factory smokestack — Detroit industry. Brick with band rings + steel cap.
-      ctx.fillStyle = '#8a3b2e';
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = '#a5624e'; // mortar band rings
-      for (let by = y + 12; by < y + h; by += 18) ctx.fillRect(x, by, w, 4);
-      ctx.fillStyle = '#5a5f66'; // steel cap
-      ctx.fillRect(x - 1, y, w + 2, 8);
-    }
+    const art = OBSTACLE_ART[type];
+    if (art) art(x, y, w, h);
+    else if (h <= 40) drawBarrel(x, y, w, h);
+    else if (h <= 56) drawPillar(x, y, w, h);
+    else drawSmokestack(x, y, w, h);
     ctx.restore();
+  }
+
+  // Checkered finish line (v3.6): a race banner marking the next choice gate. Its
+  // meters mark is a fixed point in the world, so it scrolls in with the course at
+  // exactly the obstacle speed and reaches the runner as the section completes.
+  function drawFinishLine(session) {
+    if (!session || session.gate || typeof session.nextGateAt !== 'number') return;
+    const remaining = session.nextGateAt - session.meters;
+    if (remaining <= 0) return;
+    const x = PLAYER.x + remaining / METERS_PER_UNIT; // world-units ahead of the runner
+    if (x > WORLD.width) return; // still off-screen to the right — not yet visible
+
+    const top = WORLD.groundY - FINISH.height;
+    const cell = FINISH.cell;
+    const cols = 2; // band is two checker columns wide
+    for (let row = 0, yy = top; yy < WORLD.groundY; yy += cell, row += 1) {
+      const ch = Math.min(cell, WORLD.groundY - yy);
+      for (let c = 0; c < cols; c += 1) {
+        ctx.fillStyle = (row + c) % 2 === 0 ? '#f4f6fb' : '#141a24';
+        ctx.fillRect(x + c * cell, yy, cell, ch);
+      }
+    }
+    // Pennant topper (Summit orange) so it reads as a finish marker at a glance.
+    ctx.fillStyle = '#ff6b35';
+    ctx.beginPath();
+    ctx.moveTo(x, top);
+    ctx.lineTo(x - cell * 1.6, top + cell * 0.7);
+    ctx.lineTo(x, top + cell * 1.4);
+    ctx.closePath();
+    ctx.fill();
   }
 
   // Canvas-drawn runner (v1.2): head, torso, swinging limbs. Legs cycle from the
@@ -465,6 +562,7 @@ export function createRenderer(canvas) {
       }
       ctx.globalAlpha = 1;
     }
+    drawFinishLine(session); // checkered "section end" banner scrolling in (v3.6)
     drawPlayer(player, world.distance || 0, t);
     drawPowerups(player, session);
     drawParticles(particles);

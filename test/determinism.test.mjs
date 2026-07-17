@@ -9,14 +9,14 @@ import { replayScore } from '../src/replay.js';
 import { dayKey, seedFromDay, puzzleNumber, isDaytime } from '../src/daily.js';
 
 // The keystone now runs through the shared session (via replayScore) — the exact
-// same code path the live game and the leaderboard Worker use. A tap is a jump
-// (or a gate pick when a gate is open); the session decides. Pinned scores are
-// the "identical course for everyone" guarantee (§4).
+// same code path the live game and the leaderboard Worker use. The input is a
+// button-toggle timeline (down, up, …); a press is a jump, or a gate pick when a
+// gate is open. Pinned scores are the "identical course for everyone" guarantee (§4).
 const DAY = '20260715';
 
-// Short scripted tap timeline for DAY (derived once). Dies early — the point is
-// determinism, not survival.
-const TAP_TIMELINE = [180, 250, 320, 390];
+// Short scripted toggle timeline for DAY (derived once): held over [180,250) and
+// [320,390) — two sustained jumps. Dies early; the point is determinism, not survival.
+const TOGGLE_TIMELINE = [180, 250, 320, 390];
 
 test('keystone: no-input run dies at an exact pinned score', () => {
   const r = replayScore(DAY);
@@ -26,23 +26,23 @@ test('keystone: no-input run dies at an exact pinned score', () => {
   assert.equal(r.steps, 203);
 });
 
-test('keystone: scripted tap timeline -> exact pinned score', () => {
+test('keystone: scripted toggle timeline -> exact pinned score', () => {
   // If world spawn, coin layout, physics, collision, or scoring drift, this exact
   // score changes and the test fails. The "same for everyone" pin.
-  const r = replayScore(DAY, TAP_TIMELINE);
-  assert.equal(r.distance, 178);
-  assert.equal(r.coins, 2);
-  assert.equal(r.score, 278);
-  assert.equal(r.steps, 388);
+  const r = replayScore(DAY, TOGGLE_TIMELINE);
+  assert.equal(r.distance, 118);
+  assert.equal(r.coins, 1);
+  assert.equal(r.score, 318);
+  assert.equal(r.steps, 265);
 });
 
 test('keystone: same day + same inputs -> identical result (reproducible)', () => {
-  assert.deepEqual(replayScore(DAY, TAP_TIMELINE), replayScore(DAY, TAP_TIMELINE));
+  assert.deepEqual(replayScore(DAY, TOGGLE_TIMELINE), replayScore(DAY, TOGGLE_TIMELINE));
 });
 
 test('keystone: different day -> different course', () => {
-  const a = replayScore('20260715', TAP_TIMELINE);
-  const b = replayScore('20260716', TAP_TIMELINE);
+  const a = replayScore('20260715', TOGGLE_TIMELINE);
+  const b = replayScore('20260716', TOGGLE_TIMELINE);
   assert.notEqual(a.score, b.score); // adjacent days are not the same puzzle
 });
 

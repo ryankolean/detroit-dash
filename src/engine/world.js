@@ -2,7 +2,12 @@
 // Pure simulation, no DOM. ALL randomness comes from the injected rng stream;
 // no Math.random() here (§4). Same seed -> identical spawn list (§9 snapshot test).
 
-import { WORLD, WORLD_TUNING, METERS_PER_UNIT, COIN } from '../constants.js';
+import { WORLD, WORLD_TUNING, METERS_PER_UNIT, COIN, OBSTACLES } from '../constants.js';
+
+// Weighted obstacle pool (v3.6) — each type repeated `weight` times so a uniform
+// seeded pick lands on it proportionally. Built once at module load.
+const OBSTACLE_POOL = [];
+for (const o of OBSTACLES) for (let i = 0; i < o.weight; i++) OBSTACLE_POOL.push(o);
 
 /**
  * createWorld — build the world sim for a run. Deterministic given a seeded rng
@@ -25,13 +30,17 @@ export function createWorld(opts) {
     distToNextSpawn: T.gapFloor, // units of scroll until the next spawn
 
     spawn() {
-      const width = rng.pick(T.obstacleWidths);
-      const height = rng.pick(T.obstacleHeights);
+      // Pick a hazard type from the weighted pool, then jitter its size so no two
+      // spawns are identical (v3.6). All draws come from the seeded stream (§4).
+      const def = rng.pick(OBSTACLE_POOL);
+      const width = Math.max(10, def.w + rng.int(-def.jw, def.jw));
+      const height = Math.max(10, def.h + rng.int(-def.jh, def.jh));
       w.obstacles.push({
         x: WORLD.width,
         y: WORLD.groundY - height,
         w: width,
         h: height,
+        type: def.id, // renderer draws per-type art
       });
       // Fair gap that gets HARDER with distance (v3.5): the reaction window decays
       // from reactionTime toward reactionFloor as meters climb, so the gap shrinks
@@ -40,18 +49,23 @@ export function createWorld(opts) {
       const reactionGap = Math.max(T.gapFloor, w.speed * react);
       w.distToNextSpawn = reactionGap + rng.range(0, T.gapVariety);
 
-      // Coin cluster trailing the obstacle, all drawn from the seeded stream so
-      // the collectible layout is identical for everyone (§4).
+      // Coin cluster trailing the obstacle with high-variance layout (v3.6): a
+      // seeded elevation tier, spacing, lead offset, and flat-vs-arc shape. All
+      // drawn from the stream so the collectible course is identical for all (§4).
       const coinCount = rng.int(0, COIN.maxPerCluster);
-      const elevated = rng.next() < 0.5;
-      const coinY = elevated
-        ? WORLD.groundY - COIN.elevatedY
-        : WORLD.groundY - COIN.size;
+      const tier = rng.pick(COIN.elevTiers);
+      const gap = rng.int(COIN.clusterGapMin, COIN.clusterGapMax);
+      const lead = rng.int(COIN.leadOffMin, COIN.leadOffMax);
+      const arc = rng.next() < COIN.arcChance;
+      const baseY = WORLD.groundY - COIN.size - tier;
+      const span = Math.max(1, coinCount - 1);
       const before = w.coins.length;
       for (let i = 0; i < coinCount; i++) {
+        // An arc cluster bows up toward the middle (a jump path); else a flat line.
+        const y = arc && coinCount > 1 ? baseY - COIN.arcHeight * Math.sin((Math.PI * i) / span) : baseY;
         w.coins.push({
-          x: WORLD.width + COIN.leadOffset + i * COIN.clusterGap,
-          y: coinY,
+          x: WORLD.width + lead + i * gap,
+          y,
           w: COIN.size,
           h: COIN.size,
           icon: null,

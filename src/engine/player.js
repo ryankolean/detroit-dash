@@ -32,7 +32,12 @@ export function createPlayer(opts = {}) {
       }
     },
 
-    update(dt) {
+    update(dt, holding = true) {
+      // Variable jump (v3.6): if the button is released while still rising, cap
+      // the upward speed — a quick tap becomes a short hop, a hold rides the full
+      // arc. Only clamps upward motion; never adds speed. `holding` defaults true
+      // so callers that don't drive the button (tests, backdrop) get a full jump.
+      if (!holding && !p.grounded && p.vy < t.jumpCutVelocity) p.vy = t.jumpCutVelocity;
       p.vy += t.gravity * dt;
       p.y += p.vy * dt;
       if (p.y >= restY) {
