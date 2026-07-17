@@ -97,3 +97,16 @@ Each release: tag (`v1.0.0`…), a short CHANGELOG entry, push to `main`
       cards now force light text); stronger overlay + choice-gate scrims; raised
       muted-text opacities. Verified WCAG AA+ (result-card ratios 9.6–14.4:1).
 - [x] Verified via a contrast checker at desktop in day + night; no console errors.
+
+## v3.4 — responsive fit (all sizes + both orientations) ✓
+- [x] Canvas letterboxes to fit the smaller of available width/height — the full
+      16:9 field (runner at the bottom included) is always visible; fixes the
+      landscape clipping. Shell is a viewport-bounded flex column (100dvh +
+      safe-area insets); HUD + hint fixed-size, canvas takes the leftover height.
+- [x] Refit on window resize, device rotation, and mobile URL-bar collapse
+      (ResizeObserver + orientationchange + visualViewport, rAF-debounced).
+- [x] Stats overlay brightened (#1a3a5c) with a sticky close ✕ pinned at the top;
+      overlays anchored to the viewport so they fit + scroll in short landscape.
+- [x] Verified no page scroll + full field + HUD/hint visible at portrait
+      (375×667), landscape (812×375, 568×320), tablet (768×1024), desktop
+      (1280×800); stats close light in both themes; 89/89 tests; no console errors.

@@ -30,7 +30,8 @@ body {
 }
 
 body {
-  min-height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, sans-serif; /* TODO(v1.0): swap for brand font (§7). */
@@ -38,48 +39,94 @@ body {
   overflow: hidden; /* game is a fixed surface; no page scroll */
 }
 
+/* The shell fills the viewport and centers a fixed-size HUD + hint with the
+   canvas taking the leftover height — so the whole game fits in both
+   orientations (v3.4). */
 #game {
-  position: relative; /* anchor for the result overlay (§5) */
-  margin: auto;
+  position: relative; /* anchor for overlays (§5) */
+  margin: 0 auto;
   width: 100%;
   max-width: 900px;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
-  padding: 1rem;
+  padding-top: max(1rem, env(safe-area-inset-top));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
 }
 
-/* HUD — score, streak, puzzle number (§5, §7) */
+/* HUD — score, streak, puzzle number (§5, §7). Fixed-size row, never wraps. */
 #hud {
   width: 100%;
+  flex: 0 0 auto;
   display: flex;
+  flex-wrap: nowrap;
   justify-content: space-between;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
   font-variant-numeric: tabular-nums;
   font-size: clamp(0.9rem, 3vw, 1.1rem);
 }
 
-/* Mute toggle — icon button in the HUD (v1.2) */
-#mute-btn {
+/* Puzzle label truncates so a long "· PLAYTEST" tag never forces h-scroll. */
+#hud-puzzle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#hud-score,
+#hud-streak {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* HUD icon buttons — 44x44 tap targets (v3.4). */
+#mute-btn,
+#stats-btn {
   border: none;
   background: transparent;
   cursor: pointer;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
   line-height: 1;
-  padding: 0.1rem 0.2rem;
+  padding: 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.85;
 }
 
-#mute-btn:hover {
+#mute-btn:hover,
+#stats-btn:hover {
   opacity: 1;
 }
 
-/* Canvas — the game surface, centered and responsive-width */
-#stage {
+/* Flex-grow track that owns the leftover height and centers the canvas. */
+#stage-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Canvas — letterboxed to fit BOTH width and height so the full 16:9 field
+   (runner at the bottom included) is always visible in any orientation. */
+#stage {
+  display: block;
+  width: auto;
   height: auto;
+  max-width: 100%;
+  max-height: 100%;
   aspect-ratio: 16 / 9;
   background: #0e2440;
   border-radius: 8px;
@@ -87,13 +134,14 @@ body {
 }
 
 #hint {
+  flex: 0 0 auto;
   opacity: 0.88;
   font-size: clamp(0.8rem, 2.5vw, 0.95rem);
 }
 
-/* Result-screen overlay — centered card floating over the canvas (§5). */
+/* Result-screen overlay — full-screen modal centered on the viewport (§5). */
 #result {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
@@ -109,6 +157,8 @@ body {
 .result-card {
   width: 100%;
   max-width: 360px;
+  max-height: 100%;
+  overflow-y: auto; /* Share/Replay stay reachable on short landscape (v3.4) */
   background: #0e2440;
   border: 1px solid var(--accent);
   border-radius: 12px;
@@ -247,7 +297,7 @@ body {
 
 /* Stats overlay — centered card over the dimmed canvas, like the result. */
 #stats {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
@@ -263,20 +313,30 @@ body {
 .stats-card {
   width: 100%;
   max-width: 380px;
-  max-height: 100%;
+  max-height: calc(100vh - 2rem);
+  max-height: calc(100dvh - 2rem);
   overflow-y: auto;
-  background: #0e2440;
-  border: 1px solid rgba(240, 246, 255, 0.18);
+  /* Brighter surface (v3.4) — light #f0f6ff text stays ~10.7:1 (AA). */
+  background: #1a3a5c;
+  border: 1px solid rgba(240, 246, 255, 0.22);
   border-radius: 12px;
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 0 1.5rem 1.5rem;
   animation: result-pop 0.24s ease-out;
-  color: #f0f6ff; /* always-dark surface -> light text regardless of page theme (v3.3) */
+  color: #f0f6ff;
 }
 
+/* Sticky header keeps the close ✕ pinned at the top while the card scrolls. */
 .stats-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin: 0 -1.5rem;
+  padding: 1.1rem 1.5rem 0.75rem;
+  background: #1a3a5c;
+  border-bottom: 1px solid rgba(240, 246, 255, 0.14);
 }
 
 .stats-head h2 {
@@ -286,11 +346,16 @@ body {
 #stats-close {
   border: none;
   background: transparent;
-  color: var(--fg);
+  color: #f0f6ff; /* stay light in BOTH themes (var(--fg) is dark in day) */
   font-size: 1.2rem;
   cursor: pointer;
   opacity: 0.8;
-  padding: 0.2rem 0.4rem;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
 }
 
 #stats-close:hover {
@@ -336,7 +401,7 @@ body {
   font-size: 0.9rem;
   padding: 0.35rem 0.5rem;
   border-radius: 6px;
-  background: rgba(240, 246, 255, 0.05);
+  background: rgba(240, 246, 255, 0.08); /* reads on the brighter card (v3.4) */
   font-variant-numeric: tabular-nums;
 }
 
@@ -360,8 +425,8 @@ body {
   padding: 0.45rem 0.6rem;
   border: 1px solid rgba(240, 246, 255, 0.18);
   border-radius: 8px;
-  background: rgba(240, 246, 255, 0.05);
-  color: var(--fg);
+  background: rgba(240, 246, 255, 0.08);
+  color: #f0f6ff; /* light in both themes on the dark card (v3.4) */
   font-size: 0.82rem;
   cursor: pointer;
   text-align: left;

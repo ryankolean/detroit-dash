@@ -48,13 +48,19 @@ export function createRenderer(canvas) {
 
   function resize() {
     const dpr = window.devicePixelRatio || 1;
+    // Size the backing store to the REAL element box (CSS letterboxes it to 16:9,
+    // width- or height-bound). Fit the world with a uniform scale + centering
+    // offset so either axis can bind and the full field stays visible (v3.4).
     const cssW = canvas.clientWidth || WORLD.width;
-    const cssH = cssW * (WORLD.height / WORLD.width); // keep the 16:9-ish ratio
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
-    // Map (0,0)-(WORLD.width,WORLD.height) onto the backing store.
-    scale = canvas.width / WORLD.width;
-    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+    const cssH = canvas.clientHeight || cssW * (WORLD.height / WORLD.width);
+    const bw = Math.max(1, Math.round(cssW * dpr));
+    const bh = Math.max(1, Math.round(cssH * dpr));
+    if (canvas.width !== bw) canvas.width = bw;
+    if (canvas.height !== bh) canvas.height = bh;
+    scale = Math.min(canvas.width / WORLD.width, canvas.height / WORLD.height);
+    const ox = (canvas.width - WORLD.width * scale) / 2;
+    const oy = (canvas.height - WORLD.height * scale) / 2;
+    ctx.setTransform(scale, 0, 0, scale, ox, oy);
   }
 
   function clear(t) {
@@ -380,6 +386,13 @@ export function createRenderer(canvas) {
 
   function draw(world, player, skyline, particles, themeName, session) {
     const t = THEMES[themeName] || THEMES.night;
+    // Fill the whole backing store first so any letterbox slack around the
+    // world (from sub-pixel rounding) is sky-colored, not stale (v3.4).
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = t.skyBot;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.restore();
     clear(t);
     drawSkyline(skyline, world.distance || 0, t);
     drawLaneScrim(t); // v3.3: darken behind the action so foreground pops

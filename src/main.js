@@ -58,10 +58,22 @@ hudPuzzle.textContent = `Detroit Dash #${puzzleNo}${hudTag}`;
 hudStreak.textContent = `🔥 ${state.currentStreak}`;
 
 const renderer = createRenderer(canvas);
-window.addEventListener('resize', () => {
-  renderer.resize();
-  drawBackdrop();
-});
+// Re-letterbox on any size change — window resize, device rotation, and the
+// mobile URL-bar collapse (visualViewport). rAF-debounced (v3.4).
+let resizeQueued = false;
+function refit() {
+  if (resizeQueued) return;
+  resizeQueued = true;
+  requestAnimationFrame(() => {
+    resizeQueued = false;
+    renderer.resize();
+    drawBackdrop(); // harmless mid-run; the loop's next frame overwrites it
+  });
+}
+if (typeof ResizeObserver === 'function') new ResizeObserver(refit).observe(canvas);
+else window.addEventListener('resize', refit);
+window.addEventListener('orientationchange', refit);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', refit);
 
 // Cosmetic parallax skyline — built once from its own seed, shared across runs.
 const skyline = createSkyline();
