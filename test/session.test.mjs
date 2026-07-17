@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSession } from '../src/engine/session.js';
 import { seedFromDay } from '../src/daily.js';
-import { SEGMENT_METERS, POWERUPS } from '../src/constants.js';
+import { SEGMENT, POWERUPS } from '../src/constants.js';
 
 const SEED = seedFromDay('20260715');
 
@@ -108,6 +108,61 @@ test('gate options are drawn deterministically from the seed', () => {
   assert.equal(a.picks[0], b.picks[0]);
 });
 
-test('segments are spaced by SEGMENT_METERS', () => {
-  assert.ok(SEGMENT_METERS >= 200); // generous runway (fairness)
+test('segments start generous and grow each level (progressive length)', () => {
+  assert.ok(SEGMENT.first >= 200); // generous runway to the first gate (fairness)
+  assert.ok(SEGMENT.grow > 0); // each subsequent segment is longer
+});
+
+test('post-pick countdown freezes then resumes (deterministic 3·2·1·GO)', () => {
+  const s = createSession(SEED);
+  // Survive (jump obstacles) until a gate opens.
+  let guard = 0;
+  while (guard++ < 20000 && !s.gate && s.alive) {
+    let tap = false;
+    if (s.player.grounded) {
+      const px = s.player.x + s.player.width;
+      let n = Infinity;
+      for (const o of s.world.obstacles) {
+        const g = o.x - px;
+        if (g >= 0 && g < n) n = g;
+      }
+      tap = n >= 20 && n <= 60;
+    }
+    s.step(tap);
+  }
+  assert.ok(s.gate, 'a gate opened');
+  const before = s.world.meters;
+  s.step(true); // pick -> starts the countdown
+  assert.ok(s.countdown, 'countdown started after the pick');
+  // Holds for its full duration with the world frozen.
+  const seen = new Set();
+  const TOTAL = 4 * 32;
+  for (let i = 0; i < TOTAL; i++) {
+    seen.add(s.countdownLabel());
+    s.step(false);
+    assert.equal(s.world.meters, before, 'world frozen during countdown');
+  }
+  assert.ok(s.countdown, 'countdown persists through its full duration');
+  s.step(false); // clears the countdown and resumes normal play
+  assert.equal(s.countdown, null, 'countdown ended');
+  assert.ok(seen.has('3') && seen.has('GO'), 'showed 3 … GO');
+});
+
+test('slow-mo preserves full jump height (bullet time, not a shorter jump)', () => {
+  // Same jump, with and without slow-mo -> the same peak height above ground.
+  function peak(slow) {
+    const s = createSession(SEED);
+    if (slow) s.activate('slow');
+    s.step(true); // jump
+    let minY = s.player.y; // smaller y = higher
+    for (let i = 0; i < 200; i++) {
+      s.step(false);
+      minY = Math.min(minY, s.player.y);
+      if (s.player.grounded && i > 5) break;
+    }
+    return minY;
+  }
+  const normalPeak = peak(false);
+  const slowPeak = peak(true);
+  assert.ok(Math.abs(normalPeak - slowPeak) < 3, 'apex height essentially unchanged under slow-mo');
 });

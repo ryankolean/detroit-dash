@@ -9,7 +9,7 @@ import { createWorld } from './world.js';
 import { createPlayer } from './player.js';
 import { aabbIntersects } from './collision.js';
 import { createScorer } from './scoring.js';
-import { DT, SEGMENT_METERS, GATE, POWERUPS, POWERUP_TYPES } from '../constants.js';
+import { DT, SEGMENT, GATE, COUNTDOWN, POWERUPS, POWERUP_TYPES } from '../constants.js';
 
 // Deterministic Fisher-Yates draw of `n` distinct power-ups from the seed stream.
 function drawOptions(rng, n) {
@@ -40,7 +40,9 @@ export function createSession(seed) {
     stepCount: 0,
     alive: true,
     segment: 0, // segments crossed (== gates opened)
+    nextGateAt: SEGMENT.first, // meters mark of the next gate (grows per level)
     gate: null, // active choice gate: { options, highlight, startStep }
+    countdown: null, // post-pick "3·2·1·GO" freeze: { startStep }
     shield: 0,
     // Power-up windows expire at a meters mark; -1 = inactive.
     magnetUntil: -1,
@@ -61,6 +63,12 @@ export function createSession(seed) {
     },
     doubleActive() {
       return world.meters < s.doubleUntil;
+    },
+    // Current "3·2·1·GO" label, or null when no countdown is running (for render).
+    countdownLabel() {
+      if (!s.countdown) return null;
+      const i = Math.floor((s.stepCount - s.countdown.startStep) / COUNTDOWN.stepPer);
+      return COUNTDOWN.labels[Math.min(i, COUNTDOWN.labels.length - 1)];
     },
 
     activate(type) {
@@ -87,19 +95,33 @@ export function createSession(seed) {
           picked = s.gate.options[s.gate.highlight];
           s.activate(picked);
           s.gate = null;
+          s.countdown = { startStep: s.stepCount + 1 }; // "3·2·1·GO" before resume
         }
         s.stepCount += 1;
         return { alive: true, jumped: false, picked, collected: [] };
       }
 
+      // --- Countdown after a pick: frozen "3·2·1·GO", then resume. ---
+      if (s.countdown) {
+        const elapsed = s.stepCount - s.countdown.startStep;
+        if (elapsed < COUNTDOWN.stepPer * COUNTDOWN.labels.length) {
+          s.stepCount += 1;
+          return { alive: true, jumped: false, picked: null, collected: [] };
+        }
+        s.countdown = null; // finished -> fall through to a normal step this frame
+      }
+
       // --- Normal step ---
+      const slow = s.slowActive();
       let jumped = false;
       if (tapped) {
         player.jump();
         jumped = true;
       }
-      world.update(DT, s.slowActive() ? POWERUPS.slowFactor : 1);
-      player.update(DT);
+      world.update(DT, slow ? POWERUPS.slowFactor : 1);
+      // Slow-mo scales the player's clock too (bullet time). Apex height depends
+      // on velocity/gravity, not dt — so the jump still reaches full height.
+      player.update(DT * (slow ? POWERUPS.slowFactor : 1));
 
       // Coin collection (+ magnet pull, + 2x payout).
       const collected = [];
@@ -120,11 +142,11 @@ export function createSession(seed) {
         }
       }
 
-      // Open a choice gate each time a new segment is crossed.
-      const seg = Math.floor(world.meters / SEGMENT_METERS);
-      if (seg > s.segment) {
-        s.segment = seg;
+      // Open a choice gate at each (progressively longer) segment boundary.
+      if (world.meters >= s.nextGateAt) {
+        s.segment += 1;
         s.gate = { options: drawOptions(rng, GATE.optionCount), highlight: 0, startStep: s.stepCount };
+        s.nextGateAt += SEGMENT.first + s.segment * SEGMENT.grow;
       }
 
       // Collision — shield absorbs one hit (and removes that obstacle).

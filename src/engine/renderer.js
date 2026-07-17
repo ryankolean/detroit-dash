@@ -406,6 +406,25 @@ export function createRenderer(canvas) {
     drawPowerups(player, session);
     drawParticles(particles);
     drawGate(session);
+    drawCountdown(session);
+  }
+
+  // Post-pick "3 · 2 · 1 · GO" overlay (v3.3): a big centered label over a light
+  // scrim while the world is frozen, so the player can get set before resuming.
+  function drawCountdown(session) {
+    if (!session || typeof session.countdownLabel !== 'function') return;
+    const label = session.countdownLabel();
+    if (!label) return;
+    ctx.fillStyle = 'rgba(7,17,32,0.28)';
+    ctx.fillRect(0, 0, WORLD.width, WORLD.height);
+    ctx.textAlign = 'center';
+    ctx.fillStyle = label === 'GO' ? '#ffd166' : '#f0f6ff';
+    ctx.font = 'bold 88px system-ui, sans-serif';
+    ctx.fillText(label, WORLD.width / 2, WORLD.height / 2 + 30);
+    ctx.font = '15px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(240,246,255,0.9)';
+    ctx.fillText('Get ready', WORLD.width / 2, WORLD.height / 2 + 66);
+    ctx.textAlign = 'start';
   }
 
   resize();
