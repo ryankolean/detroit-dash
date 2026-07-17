@@ -277,9 +277,9 @@ export function createRenderer(canvas) {
     ctx.restore();
   }
 
-  // Checkered finish line (v3.6): a race banner marking the next choice gate. Its
-  // meters mark is a fixed point in the world, so it scrolls in with the course at
-  // exactly the obstacle speed and reaches the runner as the section completes.
+  // Checkered finish line (v3.6): a race stripe painted across the road at the next
+  // choice gate. Its meters mark is a fixed world point, so it scrolls in with the
+  // course at the obstacle speed and reaches the runner as the section completes.
   function drawFinishLine(session) {
     if (!session || session.gate || typeof session.nextGateAt !== 'number') return;
     const remaining = session.nextGateAt - session.meters;
@@ -287,24 +287,16 @@ export function createRenderer(canvas) {
     const x = PLAYER.x + remaining / METERS_PER_UNIT; // world-units ahead of the runner
     if (x > WORLD.width) return; // still off-screen to the right — not yet visible
 
-    const top = WORLD.groundY - FINISH.height;
     const cell = FINISH.cell;
-    const cols = 2; // band is two checker columns wide
-    for (let row = 0, yy = top; yy < WORLD.groundY; yy += cell, row += 1) {
-      const ch = Math.min(cell, WORLD.groundY - yy);
+    const cols = FINISH.cols;
+    // Lay the checkers ON the ground band (groundY down to the field floor).
+    for (let row = 0, yy = WORLD.groundY; yy < WORLD.height; yy += cell, row += 1) {
+      const ch = Math.min(cell, WORLD.height - yy);
       for (let c = 0; c < cols; c += 1) {
         ctx.fillStyle = (row + c) % 2 === 0 ? '#f4f6fb' : '#141a24';
         ctx.fillRect(x + c * cell, yy, cell, ch);
       }
     }
-    // Pennant topper (Summit orange) so it reads as a finish marker at a glance.
-    ctx.fillStyle = '#ff6b35';
-    ctx.beginPath();
-    ctx.moveTo(x, top);
-    ctx.lineTo(x - cell * 1.6, top + cell * 0.7);
-    ctx.lineTo(x, top + cell * 1.4);
-    ctx.closePath();
-    ctx.fill();
   }
 
   // Canvas-drawn runner (v1.2): head, torso, swinging limbs. Legs cycle from the

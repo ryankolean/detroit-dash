@@ -121,12 +121,12 @@ export const COIN = {
   iconTypes: 3, // Joe Louis fist, Spirit of Detroit, Guardian Building
 };
 
-// Checkered finish line (v3.6): a race-banner marker that scrolls in with the
-// world as the run nears the next choice gate, telegraphing "section ending —
-// power-up ahead". Purely cosmetic; derived from the gate's meters mark.
+// Checkered finish line (v3.6): a race stripe painted ACROSS THE ROAD that scrolls
+// in with the world as the run nears the next choice gate, telegraphing "section
+// ending — power-up ahead". Purely cosmetic; derived from the gate's meters mark.
 export const FINISH = {
-  height: 130, // banner height above the ground line (world-units)
-  cell: 11, // checker square size (world-units)
+  cell: 10, // checker square size (world-units)
+  cols: 3, // stripe width in checker columns
 };
 
 // Roguelite: choice gates + power-ups (v3.0). Deterministic and input-driven —
