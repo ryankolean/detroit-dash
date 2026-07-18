@@ -99,19 +99,22 @@ export const METERS_PER_UNIT = 0.1;
 
 // Collectibles + streak-combo scoring (v1.1). Coins spawn from the seeded stream
 // so the course stays identical for everyone; collecting is auto on overlap.
-// Coin clusters (v1.1) with high-variance layout (v3.6). Every cluster draws its
-// elevation tier, horizontal spacing, lead offset, and shape (flat line vs jump
-// arc) from the seed, so collectible placement varies widely run-to-run while
-// staying identical for everyone. High tiers reward a full held jump.
+// Coin clusters (v1.1) with high-variance layout (v3.6), all within jump reach
+// (v3.6.2). Every cluster draws its elevation tier, spacing, lead, and shape (flat
+// line vs jump arc) from the seed, so placement varies widely while staying
+// identical for everyone. Elevations span ground -> the reachable ceiling for
+// vertical dimension; world.js caps every coin at COIN_MAX_ELEV (derived from the
+// real jump apex) so nothing spawns above what a full jump can collect.
 export const COIN = {
   size: 20, // square coin, world-units
-  elevTiers: [16, 64, 116, 168], // elevation above ground the cluster can sit at (rng.pick)
+  elevTiers: [12, 58, 104, 148], // elevations above ground (rng.pick) — low to near-ceiling
+  reachMargin: 6, // world-units of clearance kept below the physical reach ceiling
   clusterGapMin: 30, // min horizontal spacing between coins in a cluster
   clusterGapMax: 62, // max spacing
   leadOffMin: 55, // min distance past the right edge to start the cluster
   leadOffMax: 150, // max lead
   arcChance: 0.5, // chance the cluster bows into a jump arc instead of a flat line
-  arcHeight: 46, // peak rise (world-units) of an arc cluster
+  arcHeight: 40, // how far the arc ENDS drop below the cluster peak (peak stays reachable)
   base: 50, // base points per coin, before the combo multiplier
   comboStep: 2, // coins per multiplier tier (2 coins -> +1x)
   maxMult: 5, // multiplier cap

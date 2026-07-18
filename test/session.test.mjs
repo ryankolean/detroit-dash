@@ -5,10 +5,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSession } from '../src/engine/session.js';
-import { createWorld } from '../src/engine/world.js';
+import { createWorld, COIN_MAX_ELEV } from '../src/engine/world.js';
 import { createRng } from '../src/engine/rng.js';
 import { seedFromDay } from '../src/daily.js';
-import { SEGMENT, POWERUPS, WORLD_TUNING, PLAYER, OBSTACLES } from '../src/constants.js';
+import { SEGMENT, POWERUPS, WORLD_TUNING, PLAYER, OBSTACLES, WORLD, COIN } from '../src/constants.js';
 
 const SEED = seedFromDay('20260715');
 
@@ -193,6 +193,50 @@ test('coin clusters vary widely in elevation (v3.6)', () => {
     for (let k = before; k < w.coins.length; k++) ys.add(Math.round(w.coins[k].y));
   }
   assert.ok(ys.size >= 8, `coin heights vary (saw ${ys.size} distinct)`);
+});
+
+test('every generated coin stays within jump reach (v3.6.2)', () => {
+  // Audit generation across many seeds: no coin may sit above the reach ceiling.
+  let worst = -Infinity;
+  for (let seed = 1; seed <= 200; seed++) {
+    const w = createWorld({ rng: createRng(seed) });
+    for (let i = 0; i < 200; i++) {
+      const before = w.coins.length;
+      w.spawn();
+      for (let k = before; k < w.coins.length; k++) {
+        const elev = WORLD.groundY - COIN.size - w.coins[k].y;
+        if (elev > worst) worst = elev;
+      }
+    }
+  }
+  assert.ok(worst <= COIN_MAX_ELEV, `highest coin (${worst}) is within the reach ceiling (${COIN_MAX_ELEV})`);
+});
+
+test('a coin at the reach ceiling IS collectible by a full jump (v3.6.2)', () => {
+  // The ceiling must be genuinely reachable, not just a cap. Place one coin at
+  // COIN_MAX_ELEV and sweep launch timing; a well-timed full jump must collect it.
+  function collectsAtLaunch(launch) {
+    const s = createSession(SEED);
+    s.world.spawn = () => {}; // freeze procedural spawning
+    s.world.distToNextSpawn = 1e9;
+    s.world.obstacles = [];
+    s.world.coins = [{
+      x: s.player.x + 220,
+      y: WORLD.groundY - COIN.size - COIN_MAX_ELEV,
+      w: COIN.size,
+      h: COIN.size,
+      icon: null,
+    }];
+    for (let i = 0; i < 200; i++) {
+      const r = s.step(i >= launch); // press at `launch`, hold after -> full jump
+      if (s.scorer.coinsCollected > 0) return true;
+      if (!r.alive || s.world.coins.length === 0) break;
+    }
+    return false;
+  }
+  let collected = false;
+  for (let launch = 0; launch < 120 && !collected; launch++) collected = collectsAtLaunch(launch);
+  assert.ok(collected, 'a well-timed full jump reaches a coin at COIN_MAX_ELEV');
 });
 
 test('segments start generous and grow each level (progressive length)', () => {

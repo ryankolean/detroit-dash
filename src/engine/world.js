@@ -2,12 +2,33 @@
 // Pure simulation, no DOM. ALL randomness comes from the injected rng stream;
 // no Math.random() here (§4). Same seed -> identical spawn list (§9 snapshot test).
 
-import { WORLD, WORLD_TUNING, METERS_PER_UNIT, COIN, OBSTACLES } from '../constants.js';
+import { WORLD, WORLD_TUNING, METERS_PER_UNIT, COIN, OBSTACLES, DT } from '../constants.js';
+import { createPlayer } from './player.js';
 
 // Weighted obstacle pool (v3.6) — each type repeated `weight` times so a uniform
 // seeded pick lands on it proportionally. Built once at module load.
 const OBSTACLE_POOL = [];
 for (const o of OBSTACLES) for (let i = 0; i < o.weight; i++) OBSTACLE_POOL.push(o);
+
+// Highest coin elevation still collectible by a full jump (v3.6.2). Measured from
+// the REAL player physics so it tracks tuning: a coin is reachable iff the jump's
+// apex box can overlap it, and the binding limit is apex HEIGHT (the generous
+// full-sprite pickup box gives a wide horizontal window). A coin at elevation E has
+// its bottom at groundY - E; reachable iff apexTopY < groundY - E, i.e.
+// E < groundY - apexTopY. We keep COIN.reachMargin of clearance below that. Coin
+// generation caps every elevation here, so nothing spawns above what a jump reaches.
+function fullJumpApexTopY() {
+  const p = createPlayer();
+  p.jump();
+  let minY = p.y;
+  for (let i = 0; i < 240; i++) {
+    p.update(DT, true); // hold the button -> full arc (no jump-cut)
+    minY = Math.min(minY, p.y);
+    if (p.grounded && i > 2) break;
+  }
+  return minY;
+}
+export const COIN_MAX_ELEV = Math.floor(WORLD.groundY - fullJumpApexTopY() - COIN.reachMargin);
 
 /**
  * createWorld — build the world sim for a run. Deterministic given a seeded rng
@@ -49,23 +70,25 @@ export function createWorld(opts) {
       const reactionGap = Math.max(T.gapFloor, w.speed * react);
       w.distToNextSpawn = reactionGap + rng.range(0, T.gapVariety);
 
-      // Coin cluster trailing the obstacle with high-variance layout (v3.6): a
-      // seeded elevation tier, spacing, lead offset, and flat-vs-arc shape. All
-      // drawn from the stream so the collectible course is identical for all (§4).
+      // Coin cluster trailing the obstacle with high-variance BUT reachable layout
+      // (v3.6.2): a seeded elevation tier (capped at COIN_MAX_ELEV so a full jump can
+      // always reach it), spacing, lead offset, and flat-vs-arc shape. All drawn from
+      // the stream so the collectible course is identical for everyone (§4).
       const coinCount = rng.int(0, COIN.maxPerCluster);
-      const tier = rng.pick(COIN.elevTiers);
+      const peak = Math.min(rng.pick(COIN.elevTiers), COIN_MAX_ELEV); // highest coin — reachable
       const gap = rng.int(COIN.clusterGapMin, COIN.clusterGapMax);
       const lead = rng.int(COIN.leadOffMin, COIN.leadOffMax);
       const arc = rng.next() < COIN.arcChance;
-      const baseY = WORLD.groundY - COIN.size - tier;
+      const low = Math.max(0, peak - COIN.arcHeight); // arc ends drop toward the ground
       const span = Math.max(1, coinCount - 1);
       const before = w.coins.length;
       for (let i = 0; i < coinCount; i++) {
-        // An arc cluster bows up toward the middle (a jump path); else a flat line.
-        const y = arc && coinCount > 1 ? baseY - COIN.arcHeight * Math.sin((Math.PI * i) / span) : baseY;
+        // Flat row at `peak`, or an arc rising from `low` up to `peak` at the middle —
+        // never above `peak`, so every coin stays within a full jump's reach.
+        const elev = arc && coinCount > 1 ? low + (peak - low) * Math.sin((Math.PI * i) / span) : peak;
         w.coins.push({
           x: WORLD.width + lead + i * gap,
-          y,
+          y: WORLD.groundY - COIN.size - elev,
           w: COIN.size,
           h: COIN.size,
           icon: null,
