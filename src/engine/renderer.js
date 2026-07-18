@@ -51,6 +51,14 @@ export function createRenderer(canvas) {
     if (next && next.body && next.dark) skin = { body: next.body, dark: next.dark };
   }
 
+  // Cosmetic runner animation state (v3.7). Render-only — never feeds the sim.
+  // landSquash pops on touchdown then springs back; deathProgress ramps once the
+  // run ends (and resets when a fresh run is alive). Timers advance by wall-clock
+  // seconds (lastMs delta), so animation speed is independent of display refresh.
+  const LAND_SPRING_S = 0.12; // landing squash springs back over this long
+  const DEATH_TUMBLE_S = 0.4; // collision tumble completes over this long
+  const anim = { lastGrounded: true, landSquash: 0, deathProgress: 0, lastMs: 0 };
+
   function resize() {
     const dpr = window.devicePixelRatio || 1;
     // Size the backing store to the REAL element box (CSS letterboxes it to 16:9,
@@ -299,20 +307,35 @@ export function createRenderer(canvas) {
     }
   }
 
-  // Canvas-drawn runner (v1.2): head, torso, swinging limbs. Legs cycle from the
-  // scroll distance while grounded; tuck into a jump pose while airborne.
-  function drawPlayer(p, distance, t = THEMES.night) {
+  // Canvas-drawn runner (v1.2, animated v3.7): head, torso, swinging limbs. Legs
+  // cycle from scroll distance while grounded and tuck airborne. Squash & stretch
+  // sells the jump (stretch tall on takeoff/fall, squash wide on landing); a tumble
+  // + fade plays on collision. All animation is render-only — never feeds the sim.
+  function drawPlayer(p, distance, t = THEMES.night, alive = true) {
     const { x, y, width: w, height: h } = p;
     const cx = x + w / 2;
     const grounded = p.grounded !== false; // plain test objects (no field) run
     const swing = Math.sin((distance || 0) * 0.05);
     const hipY = y + h - 14;
+    const vy = p.vy || 0;
+
+    // --- advance cosmetic animation timers by real elapsed seconds ---
+    const nowMs = typeof performance !== 'undefined' && performance.now ? performance.now() : anim.lastMs + 16.7;
+    let dtS = anim.lastMs ? (nowMs - anim.lastMs) / 1000 : 1 / 60;
+    if (dtS < 0 || dtS > 0.1) dtS = 1 / 60; // clamp tab-switch / first-frame gaps
+    anim.lastMs = nowMs;
+
+    if (grounded && !anim.lastGrounded) anim.landSquash = 1; // touchdown -> squash
+    anim.lastGrounded = grounded;
+    if (!alive) anim.deathProgress = Math.min(1, anim.deathProgress + dtS / DEATH_TUMBLE_S);
+    else anim.deathProgress = 0; // a fresh (alive) run clears the tumble
+    const dying = anim.deathProgress > 0;
 
     // Contact shadow (v3.3): grounds the runner + adds separation. Shrinks/fades
-    // as the player rises so a jump reads clearly.
+    // as the player rises so a jump reads clearly. Hidden once the run ends.
     const airGap = Math.max(0, WORLD.groundY - (y + h));
     const near = Math.max(0, Math.min(1, 1 - airGap / 220));
-    if (near > 0) {
+    if (near > 0 && !dying) {
       ctx.save();
       ctx.globalAlpha = 0.3 * near;
       ctx.fillStyle = '#000';
@@ -320,6 +343,28 @@ export function createRenderer(canvas) {
       ctx.ellipse(cx, WORLD.groundY - 1, (w / 2) * (0.55 + 0.45 * near), 4.5, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
+    }
+
+    // Squash & stretch: stretch tall (thin) when moving fast vertically — takeoff
+    // and fast fall — neutral at the apex; squash short + wide on landing.
+    const stretch = grounded ? 0 : Math.min(1, Math.abs(vy) / 760) * 0.2;
+    const sy = grounded ? 1 - 0.3 * anim.landSquash : 1 + stretch;
+    const sx = grounded ? 1 + 0.34 * anim.landSquash : 1 - stretch * 0.7;
+    anim.landSquash = Math.max(0, anim.landSquash - dtS / LAND_SPRING_S); // wall-clock spring-back
+
+    ctx.save();
+    if (dying) {
+      // Knocked-back tumble around the body center, fading out on the way down.
+      const bcy = y + h / 2;
+      ctx.translate(cx, bcy);
+      ctx.rotate(anim.deathProgress * -1.6);
+      ctx.globalAlpha = 1 - Math.max(0, anim.deathProgress - 0.55) / 0.45;
+      ctx.translate(-cx, -bcy);
+    } else {
+      // Squash/stretch anchored at the feet so the runner never sinks or floats.
+      ctx.translate(cx, y + h);
+      ctx.scale(sx, sy);
+      ctx.translate(-cx, -(y + h));
     }
 
     // Legs
@@ -367,6 +412,8 @@ export function createRenderer(canvas) {
     ctx.beginPath();
     ctx.arc(cx, y + 9, 9.5, 0, Math.PI * 2);
     ctx.stroke();
+
+    ctx.restore(); // end squash/stretch or death-tumble transform
   }
 
   // Detroit-icon bonus collectible (v1.4): a teal badge with a landmark emblem —
@@ -555,7 +602,7 @@ export function createRenderer(canvas) {
       ctx.globalAlpha = 1;
     }
     drawFinishLine(session); // checkered "section end" banner scrolling in (v3.6)
-    drawPlayer(player, world.distance || 0, t);
+    drawPlayer(player, world.distance || 0, t, session ? session.alive !== false : true);
     drawPowerups(player, session);
     drawParticles(particles);
     drawGate(session);

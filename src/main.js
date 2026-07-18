@@ -423,6 +423,11 @@ function startRun() {
   let held = false; // is the jump button down right now?
   let recordedHeld = false; // last held value written to inputToggles
   let over = false;
+  // Death animation (v3.7): on collision the sim is done, but the loop keeps
+  // drawing for a short beat so the runner's tumble plays before the result card.
+  let dying = false;
+  let dyingFrames = 0;
+  const DEATH_ANIM_FRAMES = 30; // ~0.5 s at 60 fps
 
   // Cosmetic trail config for this run (v3.1) — color from the trail, or the skin.
   const trailDef = TRAILS.find((tr) => tr.id === state.trail);
@@ -448,6 +453,14 @@ function startRun() {
 
   const loop = createLoop({
     update() {
+      // Death-animation beat: sim frozen, particles + the runner's tumble keep
+      // animating, then the result card shows.
+      if (dying) {
+        dyingFrames += 1;
+        particles.update(1 / 60);
+        if (dyingFrames >= DEATH_ANIM_FRAMES) finalizeRun();
+        return;
+      }
       // Record a toggle at the step where the sampled button state changes, so
       // replay's parity reconstruction matches the live run exactly.
       if (held !== recordedHeld) {
@@ -470,7 +483,7 @@ function startRun() {
         particles.trail(player.x + 4, player.y + player.height * 0.55, trailCfg);
       }
       particles.update(1 / 60);
-      if (!r.alive) endRun();
+      if (!r.alive) startDying();
     },
     render() {
       renderer.draw(session.world, player, skyline, particles, theme, session);
@@ -480,13 +493,20 @@ function startRun() {
     },
   });
 
-  function endRun() {
-    if (over) return;
-    over = true;
-    // Death burst at the player, drawn once before the loop stops.
+  // Collision hit: kick off the death burst + tumble, then let the loop animate.
+  // Under reduced motion, skip straight to the result.
+  function startDying() {
+    if (dying || over) return;
+    dying = true;
+    dyingFrames = 0;
     if (!reduceMotion) particles.death(player.x + player.width / 2, player.y + player.height / 2);
     audio.death();
-    renderer.draw(session.world, player, skyline, particles, theme, session);
+    if (reduceMotion) finalizeRun();
+  }
+
+  function finalizeRun() {
+    if (over) return;
+    over = true;
     loop.stop();
     unbindInput();
 
