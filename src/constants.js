@@ -133,11 +133,11 @@ export const FINISH = {
 };
 
 // Roguelite: choice gates + power-ups (v3.0). Deterministic and input-driven —
-// gate menus are drawn from the seed; the player picks with the same one-button
-// tap. All effects are pure sim (no Math.random).
+// The awarded power-up at each gate is drawn from the seed (v3.8) — same award
+// for every player on a given day, no input involved. All effects are pure sim.
 export const POWERUP_TYPES = ['shield', 'magnet', 'slow', 'double'];
 
-// A choice gate opens each time the run crosses a segment ("level"). Segments
+// A power-up gate opens each time the run crosses a segment ("level"). Segments
 // get progressively longer as the run speeds up (v3.3): the first is `first`
 // meters, and each subsequent one is `grow` meters longer than the last.
 export const SEGMENT = {
@@ -145,10 +145,12 @@ export const SEGMENT = {
   grow: 70, // each segment is this many meters longer than the previous
 };
 
+// Slot-reel award gate (v3.8): the seed picks the power-up, then a reel of icons
+// scrolls right-to-left and decelerates until the awarded icon lands centered.
+// The reel runs `reelSeconds`, then the resume countdown runs, then play resumes.
 export const GATE = {
-  optionCount: 3, // options offered per gate (distinct, drawn from the seed)
-  cyclePeriodSteps: 42, // ~0.7 s each option is highlighted at 60 fps
-  timeoutSteps: 420, // ~7 s open, then auto-pick the highlighted option
+  reelSeconds: 6, // the reel spins this long before the award settles
+  reelLaps: 5, // full passes of the icon set before it lands (drives the spin distance)
 };
 
 // Post-pick "3 · 2 · 1 · GO" countdown before gameplay resumes (v3.3). Frozen,

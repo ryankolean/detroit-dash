@@ -11,16 +11,13 @@ import { aabbIntersects } from './collision.js';
 import { createScorer } from './scoring.js';
 import { DT, SEGMENT, GATE, COUNTDOWN, POWERUPS, POWERUP_TYPES } from '../constants.js';
 
-// Deterministic Fisher-Yates draw of `n` distinct power-ups from the seed stream.
-function drawOptions(rng, n) {
-  const pool = POWERUP_TYPES.slice();
-  for (let i = pool.length - 1; i > 0; i--) {
-    const j = rng.int(0, i);
-    const t = pool[i];
-    pool[i] = pool[j];
-    pool[j] = t;
-  }
-  return pool.slice(0, n);
+// The reel spins this many fixed steps before the awarded power-up settles (v3.8).
+const REEL_STEPS = Math.round(GATE.reelSeconds / DT);
+
+// Deterministic single-power-up award from the seed stream (v3.8). One draw, so
+// the whole day's course after a gate stays identical for everyone.
+function drawAward(rng) {
+  return POWERUP_TYPES[rng.int(0, POWERUP_TYPES.length - 1)];
 }
 
 /**
@@ -41,7 +38,7 @@ export function createSession(seed) {
     alive: true,
     segment: 0, // segments crossed (== gates opened)
     nextGateAt: SEGMENT.first, // meters mark of the next gate (grows per level)
-    gate: null, // active choice gate: { options, highlight, startStep }
+    gate: null, // active award gate: { award, startStep, duration } (reel, v3.8)
     countdown: null, // post-pick "3·2·1·GO" freeze: { startStep }
     shield: 0,
     prevHeld: false, // button state last step — lets step() derive the press edge (v3.6)
@@ -92,13 +89,14 @@ export function createSession(seed) {
       const pressed = held && !s.prevHeld;
       s.prevHeld = held;
 
-      // --- Gate open: world is frozen (safe pick). Press or timeout selects. ---
+      // --- Gate open: world frozen while the award reel spins (v3.8). The award is
+      // already decided (seeded); input does nothing. When the reel finishes, the
+      // award applies and the resume countdown begins. ---
       if (s.gate) {
         const elapsed = s.stepCount - s.gate.startStep;
-        s.gate.highlight = Math.floor(elapsed / GATE.cyclePeriodSteps) % s.gate.options.length;
         let picked = null;
-        if (pressed || elapsed >= GATE.timeoutSteps) {
-          picked = s.gate.options[s.gate.highlight];
+        if (elapsed >= s.gate.duration) {
+          picked = s.gate.award;
           s.activate(picked);
           s.gate = null;
           s.countdown = { startStep: s.stepCount + 1 }; // "3·2·1·GO" before resume
@@ -150,10 +148,11 @@ export function createSession(seed) {
         }
       }
 
-      // Open a choice gate at each (progressively longer) segment boundary.
+      // Open an award gate at each (progressively longer) segment boundary. The
+      // power-up is drawn from the seed now; the reel just reveals it (v3.8).
       if (world.meters >= s.nextGateAt) {
         s.segment += 1;
-        s.gate = { options: drawOptions(rng, GATE.optionCount), highlight: 0, startStep: s.stepCount };
+        s.gate = { award: drawAward(rng), startStep: s.stepCount, duration: REEL_STEPS };
         s.nextGateAt += SEGMENT.first + s.segment * SEGMENT.grow;
       }
 

@@ -1,7 +1,7 @@
 // Renderer — canvas draw (§7, §8). The ONLY engine module that touches the DOM
 // besides input.js. v1.0: simple shapes / programmer-art, no parallax/particles (§7).
 
-import { WORLD, SHIELD_TIERS, POWERUPS, FINISH, METERS_PER_UNIT, PLAYER } from '../constants.js';
+import { WORLD, SHIELD_TIERS, POWERUPS, FINISH, METERS_PER_UNIT, PLAYER, GATE, POWERUP_TYPES } from '../constants.js';
 
 // Shield-ring color by stacked count (v3.5).
 function shieldColor(n) {
@@ -529,40 +529,135 @@ export function createRenderer(canvas) {
     ctx.textAlign = 'start';
   }
 
-  // Choice gate overlay (v3.0): three power-up options, the highlighted one lit.
-  // World is frozen while it's open; the same tap that jumps here picks.
-  function drawGate(session) {
+  // A single power-up icon centered at (cx, cy) with radius r. Used by the reel.
+  function drawPuIcon(type, cx, cy, r) {
+    ctx.save();
+    ctx.lineJoin = 'round';
+    if (type === 'shield') {
+      ctx.fillStyle = '#5fd0e0'; // crest
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r * 0.82, cy - r * 0.5);
+      ctx.lineTo(cx + r * 0.82, cy + r * 0.2);
+      ctx.quadraticCurveTo(cx + r * 0.82, cy + r * 0.95, cx, cy + r * 1.12);
+      ctx.quadraticCurveTo(cx - r * 0.82, cy + r * 0.95, cx - r * 0.82, cy + r * 0.2);
+      ctx.lineTo(cx - r * 0.82, cy - r * 0.5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#0b1d33';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    } else if (type === 'magnet') {
+      ctx.strokeStyle = '#e0402f'; // red horseshoe
+      ctx.lineWidth = r * 0.46;
+      ctx.lineCap = 'butt';
+      ctx.beginPath();
+      ctx.arc(cx, cy - r * 0.15, r * 0.62, Math.PI, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.62, cy - r * 0.15);
+      ctx.lineTo(cx - r * 0.62, cy + r * 0.8);
+      ctx.moveTo(cx + r * 0.62, cy - r * 0.15);
+      ctx.lineTo(cx + r * 0.62, cy + r * 0.8);
+      ctx.stroke();
+      ctx.strokeStyle = '#e9eef3'; // steel tips
+      ctx.beginPath();
+      ctx.moveTo(cx - r * 0.62, cy + r * 0.55);
+      ctx.lineTo(cx - r * 0.62, cy + r * 0.82);
+      ctx.moveTo(cx + r * 0.62, cy + r * 0.55);
+      ctx.lineTo(cx + r * 0.62, cy + r * 0.82);
+      ctx.stroke();
+    } else if (type === 'slow') {
+      ctx.fillStyle = '#eaf2ff'; // clock face
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1b3b5c';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.lineCap = 'round';
+      ctx.beginPath(); // hands
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx, cy - r * 0.58);
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + r * 0.42, cy + r * 0.16);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = '#ffd166'; // 2x coin
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0b1d33';
+      ctx.font = `bold ${Math.round(r * 1.05)}px system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('2×', cx, cy + 1);
+      ctx.textBaseline = 'alphabetic';
+      ctx.textAlign = 'start';
+    }
+    ctx.restore();
+  }
+
+  // Award reel overlay (v3.8): the seeded power-up is revealed by a row of icons
+  // that scrolls right-to-left and decelerates (easeOut) until the awarded icon
+  // lands under the center frame. World is frozen; runs GATE.reelSeconds.
+  function drawGateReel(session) {
     if (!session || !session.gate) return;
     const g = session.gate;
-    ctx.fillStyle = 'rgba(7,17,32,0.82)'; // v3.3: stronger scrim for legible options
+    const t = Math.max(0, Math.min(1, (session.stepCount - g.startStep) / g.duration));
+    const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic — fast, then settles
+
+    ctx.fillStyle = 'rgba(7,17,32,0.86)'; // scrim
     ctx.fillRect(0, 0, WORLD.width, WORLD.height);
     ctx.fillStyle = '#f0f6ff';
     ctx.font = 'bold 20px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Pick a power-up', WORLD.width / 2, 120);
+    ctx.fillText('Power-up incoming', WORLD.width / 2, 104);
 
-    const n = g.options.length;
-    const boxW = 150;
-    const boxH = 90;
-    const gap = 24;
-    const totalW = n * boxW + (n - 1) * gap;
-    let x0 = (WORLD.width - totalW) / 2;
-    const y0 = 160;
-    g.options.forEach((opt, i) => {
-      const x = x0 + i * (boxW + gap);
-      const on = i === g.highlight;
-      ctx.fillStyle = on ? '#ff6b35' : '#12325a';
-      ctx.fillRect(x, y0, boxW, boxH);
-      ctx.strokeStyle = on ? '#ffd166' : 'rgba(240,246,255,0.3)';
-      ctx.lineWidth = on ? 3 : 1;
-      ctx.strokeRect(x + 1, y0 + 1, boxW - 2, boxH - 2);
-      ctx.fillStyle = on ? '#0b1d33' : '#f0f6ff';
-      ctx.font = 'bold 18px system-ui, sans-serif';
-      ctx.fillText(PU_LABEL[opt] || opt, x + boxW / 2, y0 + boxH / 2 + 6);
-    });
-    ctx.fillStyle = 'rgba(240,246,255,0.96)';
-    ctx.font = '14px system-ui, sans-serif';
-    ctx.fillText('Tap to lock in the highlighted option', WORLD.width / 2, y0 + boxH + 34);
+    const CW = 96; // cell width
+    const R = 30; // icon radius
+    const cx0 = WORLD.width / 2;
+    const cy = WORLD.height / 2 - 6;
+    const ai = Math.max(0, POWERUP_TYPES.indexOf(g.award));
+    const land = GATE.reelLaps * POWERUP_TYPES.length + ai; // cell index centered at t=1
+    const scroll = land * CW * eased; // 0 -> land*CW; ends with the award centered
+
+    // Clip the reel to a horizontal band, draw the scrolling cells with edge fade.
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, cy - R - 16, WORLD.width, (R + 16) * 2);
+    ctx.clip();
+    const span = Math.ceil(WORLD.width / (2 * CW)) + 1;
+    const centerCell = scroll / CW;
+    for (let i = Math.floor(centerCell - span); i <= Math.ceil(centerCell + span); i++) {
+      if (i < 0) continue;
+      const x = cx0 + i * CW - scroll;
+      const type = POWERUP_TYPES[((i % POWERUP_TYPES.length) + POWERUP_TYPES.length) % POWERUP_TYPES.length];
+      ctx.globalAlpha = Math.max(0.12, 1 - Math.abs(x - cx0) / (WORLD.width * 0.5));
+      drawPuIcon(type, x, cy, R);
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    // Center selection frame.
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(cx0 - CW / 2, cy - R - 16, CW, (R + 16) * 2);
+    // Pointer above the frame.
+    ctx.fillStyle = '#ffd166';
+    ctx.beginPath();
+    ctx.moveTo(cx0, cy - R - 22);
+    ctx.lineTo(cx0 - 8, cy - R - 34);
+    ctx.lineTo(cx0 + 8, cy - R - 34);
+    ctx.closePath();
+    ctx.fill();
+
+    // Once settled, name the award under the frame.
+    if (t > 0.97) {
+      ctx.fillStyle = '#ffd166';
+      ctx.font = 'bold 20px system-ui, sans-serif';
+      ctx.fillText(PU_LABEL[g.award] || g.award, cx0, cy + R + 46);
+    }
     ctx.textAlign = 'start';
   }
 
@@ -605,7 +700,7 @@ export function createRenderer(canvas) {
     drawPlayer(player, world.distance || 0, t, session ? session.alive !== false : true);
     drawPowerups(player, session);
     drawParticles(particles);
-    drawGate(session);
+    drawGateReel(session); // v3.8 slot-reel award (replaces the tap chooser)
     drawCountdown(session);
   }
 

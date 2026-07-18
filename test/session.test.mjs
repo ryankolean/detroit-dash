@@ -8,14 +8,15 @@ import { createSession } from '../src/engine/session.js';
 import { createWorld, COIN_MAX_ELEV } from '../src/engine/world.js';
 import { createRng } from '../src/engine/rng.js';
 import { seedFromDay } from '../src/daily.js';
-import { SEGMENT, POWERUPS, WORLD_TUNING, PLAYER, OBSTACLES, WORLD, COIN } from '../src/constants.js';
+import { SEGMENT, POWERUPS, WORLD_TUNING, PLAYER, OBSTACLES, WORLD, COIN, GATE, DT, POWERUP_TYPES } from '../src/constants.js';
 
 const SEED = seedFromDay('20260715');
+const REEL_STEPS = Math.round(GATE.reelSeconds / DT); // 6 s reel at 60 fps
 
-// A deterministic auto-player for the held-jump model (v3.6). At a gate it toggles
-// the button each step (guaranteeing a rising edge to pick). Otherwise it launches
-// when an obstacle is in range and HOLDS the button for enough steps to clear it —
-// a single-step tap is only a short hop now.
+// A deterministic auto-player for the held-jump model (v3.6). The award gate
+// resolves on its own (seeded reel, v3.8) — input does nothing there — so the bot
+// just keeps stepping. Otherwise it launches when an obstacle is in range and
+// HOLDS the button long enough to clear it (a single-step tap is only a short hop).
 function autoplay(seed, cap) {
   const s = createSession(seed);
   const picks = [];
@@ -24,7 +25,7 @@ function autoplay(seed, cap) {
   while (step < cap) {
     let held = false;
     if (s.gate) {
-      held = !s.prevHeld; // toggle -> periodic rising edges pick the option
+      held = false; // reel is automatic; nothing to press
       holdLeft = 0;
     } else if (holdLeft > 0) {
       held = true;
@@ -152,11 +153,13 @@ test('double window doubles coin payout', () => {
   assert.equal(normalGain, 50);
 });
 
-test('gate options are drawn deterministically from the seed', () => {
+test('the awarded power-up is seeded — same seed -> same award (v3.8)', () => {
   const a = autoplay(SEED, 3000);
   const b = autoplay(SEED, 3000);
-  // First gate's picked power-up is stable across runs.
+  // The award is drawn from the seed, not chosen — stable across identical runs.
+  assert.ok(a.picks.length >= 1, 'a gate awarded a power-up');
   assert.equal(a.picks[0], b.picks[0]);
+  assert.ok(POWERUP_TYPES.includes(a.picks[0]), 'award is a real power-up type');
 });
 
 test('difficulty keeps rising: reaction window decays with distance (no plateau)', () => {
@@ -244,9 +247,9 @@ test('segments start generous and grow each level (progressive length)', () => {
   assert.ok(SEGMENT.grow > 0); // each subsequent segment is longer
 });
 
-test('post-pick countdown freezes then resumes (deterministic 3·2·1·GO)', () => {
+test('award reel spins ~6 s (world frozen), then countdown, then resume (v3.8)', () => {
   const s = createSession(SEED);
-  // Survive (hold jumps over obstacles) until a gate opens.
+  // Survive (hold jumps over obstacles) until an award gate opens.
   let guard = 0;
   let holdLeft = 0;
   while (guard++ < 20000 && !s.gate && s.alive) {
@@ -269,11 +272,25 @@ test('post-pick countdown freezes then resumes (deterministic 3·2·1·GO)', () 
     s.step(held);
   }
   assert.ok(s.gate, 'a gate opened');
-  if (s.prevHeld) s.step(false); // ensure the pick is a clean rising edge
+  const award = s.gate.award;
+  assert.ok(POWERUP_TYPES.includes(award), 'the award is a seeded power-up type');
+  assert.equal(s.gate.duration, REEL_STEPS, 'reel lasts the configured 6 s');
   const before = s.world.meters;
-  s.step(true); // press -> pick -> starts the countdown
-  assert.ok(s.countdown, 'countdown started after the pick');
-  // Holds for its full duration with the world frozen.
+
+  // The reel runs on its own — input does nothing; the world stays frozen.
+  let picked = null;
+  let reelSteps = 0;
+  for (let i = 0; i < REEL_STEPS + 2 && !picked; i++) {
+    const r = s.step(true); // pressing has no effect during the reel
+    assert.equal(s.world.meters, before, 'world frozen during the reel');
+    reelSteps += 1;
+    if (r.picked) picked = r.picked;
+  }
+  assert.equal(picked, award, 'the reel awards exactly the seeded power-up');
+  assert.equal(reelSteps, REEL_STEPS, 'the award lands after the full 6 s reel');
+  assert.ok(s.countdown, 'the resume countdown starts once the reel completes');
+
+  // Resume countdown: 3 · 2 · 1 · GO, world still frozen.
   const seen = new Set();
   const TOTAL = 4 * 32;
   for (let i = 0; i < TOTAL; i++) {
