@@ -412,6 +412,8 @@ function startRun() {
   // the SAME code the Worker replays (§v3.0). See engine/session.js.
   const session = createSession(seed);
   const { player } = session;
+  // Dev-only read handle for automated playtests (?dev). Inert in production.
+  if (dev.enabled) window.__dash = { session };
   const particles = createParticles();
   // Recorded input timeline for replay-verified submit (v2.0). With the held-jump
   // model (v3.6) this is a flat ascending list of the STEP indices where the button
